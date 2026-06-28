@@ -31,19 +31,23 @@ reviews a trivial PR.
 
 ---
 
-## Phase 1 — Single-GPU modern inference
+## Phase 1 — Single-GPU inference on EKS (g4dn → g6)
 
-**Build.** Bring up K8s on RunPod (validate native Instant Cluster K8s vs k3s — ADR-0003);
-install the GPU Operator; deploy vLLM serving a 7–14B model on an RTX 4090 (FP8); DCGM →
-Prometheus → Grafana.
+**Build.** EKS cluster via Terraform (managed node group, g4dn.2xlarge); NVIDIA GPU Operator
+(device plugin, DCGM exporter, container toolkit); vLLM serving a 7–13B model (INT4/INT8 on
+T4 — no hardware FP8 on Turing); DCGM → Prometheus → Grafana with the key inference metrics
+(`MEM_COPY_UTIL`, `FB_USED`, `GPU_UTIL`, `POWER_USAGE`).
 
-**Test.** Hit the OpenAI-compatible endpoint; confirm FP8 path; read tokens/sec and GPU
-telemetry in Grafana.
+Node-group swap to **g6.2xlarge** (L4, Ada, FP8) once quota clears — no manifest changes,
+only the Terraform node group block. FP8 path enabled (`--quantization fp8`) after swap.
 
-**Demo.** Modern inference on the cheapest credible footprint; the portability seam exists
-from day one.
+**Test.** OpenAI-compatible endpoint returns completions; tokens/sec and VRAM utilization
+visible in Grafana; `make down` leaves zero AWS resources (verify via `aws resourcegroupstaggingapi get-resources`).
 
-**Tear down.** `make down`; weights remain cached in the network volume for next time.
+**Demo.** End-to-end inference stack on managed K8s: model → GPU Operator → vLLM → OpenAI API
+→ Grafana observability. The portability seam (ADR-0002) is established from this phase.
+
+**Tear down.** `make down`; model weights remain in S3 for next spin-up.
 
 ---
 

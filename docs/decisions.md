@@ -35,31 +35,65 @@ never learn what hardware they run on. Only `tensor-parallel-size`, model id, an
 
 ---
 
-## ADR-0003 — Start on RunPod; AWS/GKE are later pool modules
+## ADR-0003 — EKS is the primary K8s substrate; g4dn now, g6 when quota clears
 
-**Decision.** Phase 1–4 dev runs on **RunPod**. AWS (EKS) and GKE are added later as pool
-modules if/when a managed control plane is preferred.
+**Decision.** Phase 1–5 dev runs on **AWS EKS**. Phase 1 starts on **g4dn** (T4, available
+today); **g6** (L4, Ada, FP8) is the target node group once a quota increase clears. GKE and
+H100 burst providers (Lambda, CoreWeave) are later pool modules. RunPod is disqualified as a
+primary — its Instant Clusters are Slurm-based and explicitly incompatible with Kubernetes.
 
-**Why.** AWS GPU quota is gated (only a single instance type visible today; G/P quota
-increases take days). RunPod gives modern GPUs by the hour with zero egress on weights and no
-quota wait. Because of ADR-0002, this is not a one-way door — and being unblocked on RunPod
-while AWS is gated *demonstrates* the portability thesis rather than contradicting it.
+**Why.** The platform's hard requirement is K8s-native end-to-end (GPU Operator, KubeRay,
+ArgoCD, Karpenter — all require real K8s). EKS is the managed K8s with the deepest NVIDIA GPU
+Operator support documentation and the most enterprise deployment precedent. Starting on
+available g4dn hardware means the entire stack is working before the g6 quota arrives — the
+node-group swap is then a single Terraform change, validating ADR-0002 in practice.
 
-**Open validation (Phase 1 spike).** Confirm RunPod's K8s path: native Instant Cluster
-Kubernetes vs. self-managed **k3s** on RunPod instances. Either satisfies ADR-0002 (both yield
-a kubeconfig with `nvidia.com/gpu` nodes). Default to whichever is cleaner at build time;
-self-managed k3s is the maximally-portable fallback.
+**Quota path for g6.** Quota name: "Running On-Demand G and VT instances" (code `L-DB2E81BA`).
+Request via AWS Service Quotas console or:
+```
+aws service-quotas request-service-quota-increase \
+  --service-code ec2 --quota-code L-DB2E81BA \
+  --desired-value 32 --region us-east-1
+```
+Small increases typically resolve in minutes to hours. File now; build on g4dn meanwhile.
+Also confirm g6 availability in the target region:
+```
+aws ec2 describe-instance-type-offerings \
+  --location-type availability-zone \
+  --filters Name=instance-type,Values=g6.2xlarge \
+  --region us-east-1 --output table
+```
 
 ---
 
-## ADR-0004 — Dev GPU is modern (FP8-capable), not T4
+## ADR-0004 — Phase 1 on T4 (g4dn); L4 (g6) is the FP8 upgrade target
 
-**Decision.** Dev starts on a modern GPU — **RTX 4090 (24GB, Ada, FP8, ~$0.34–0.69/hr)** for
-single-GPU work, **A100 80GB / L40S** for distributed work. Not T4.
+**Decision.** Phase 1 uses **g4dn.2xlarge (T4, 16GB)** — available today. **g6.2xlarge (L4,
+24GB, Ada)** replaces it at Phase 1→2 transition once quota clears. Nothing above the node pool
+changes.
 
-**Why.** T4 (Turing, 16GB, no FP8) cannot demonstrate modern inference techniques (FP8 quant,
-FA3-class kernels) — the techniques this platform targets. The cost delta over T4 is small;
-the capability delta is large.
+**Why T4 is an acceptable Phase 1 substrate.** The K8s + GPU Operator + KubeRay + vLLM stack
+is architecture-invariant — it runs identically on T4 and H100. Phase 1 validates the stack,
+not the GPU. Known T4 limitations are concrete and documented:
+- No hardware FP8 (Turing arch, pre-Ada). FP8 serving falls back to software emulation — high
+  overhead, loses most throughput benefit. INT8 and INT4 (AWQ/GPTQ) are the practical
+  quantization paths on T4.
+- 16GB VRAM: fits 7B FP16 (~14GB) or 13B INT4 (~7GB). KV cache headroom is tight under
+  concurrent long-context requests; `--gpu-memory-utilization 0.85` and
+  `--max-model-len 4096` are the operating knobs.
+- Memory bandwidth 300 GB/s (vs H100 SXM 3.35 TB/s): decode throughput is proportionally
+  lower. Decode is memory-bandwidth-bound, not compute-bound.
+
+**Why L4 (g6) is the target.** Ada Lovelace architecture adds hardware FP8 (W8A8) — same
+precision as Hopper's transformer engine path. 24GB VRAM fits 13B FP16 comfortably with
+room for KV cache. 864 GB/s memory bandwidth. The transition from g4dn to g6 is the concrete
+moment the platform demonstrates the FP8 serving path and higher concurrency under load.
+
+**Why not skip T4 and wait for g6.** Building on g4dn unblocks Phase 0–1 without waiting
+on quota. The architectural discipline of running on constrained hardware first — understanding
+the KV cache pressure, the decode bandwidth limits, the model size trade-offs — produces better
+operational tuning for all subsequent hardware. It is not a compromise; it is the correct
+order of operations.
 
 ---
 

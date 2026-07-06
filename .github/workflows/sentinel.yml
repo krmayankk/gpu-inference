@@ -1,0 +1,23 @@
+name: sentinel
+# AI review gate. Reads CLAUDE.md + sentinel.yml. Warn-only (fail-on empty)
+# until trusted; then set fail-on: critical to make it block merges (ADR-0002
+# enforcement). This is the reciprocal of sentinel's own plan to backtest
+# against this repo — the gate that guards the infra is the gate sentinel proves.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # sentinel diffs the PR against its base ref
+      - uses: krmayankk/sentinel@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          fail-on: "" # warn-only for now

@@ -1,0 +1,21 @@
+# Sentinel config — what runs on each PR and where. See CLAUDE.md for the
+# conventions change_completeness enforces on this repo.
+#
+# fail_on is empty on purpose: warn-only until the gate has proven itself on
+# real PRs (the onboard principle — nothing blocks merges without a human
+# turning it on). Flip to [critical] once trusted.
+skills:
+  - change_completeness
+  - workflow_security
+
+fail_on: []
+
+routing:
+  - pattern: ".github/workflows/**"
+    skills: [workflow_security]
+  - pattern: "infra/**"
+    skills: [change_completeness]
+  - pattern: "platform/**"
+    skills: [change_completeness]
+  - pattern: "platform/serving/gpus/**"
+    skills: [change_completeness]

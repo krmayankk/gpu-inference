@@ -1,0 +1,39 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      # kubectl (with built-in kustomize) is preinstalled on ubuntu runners.
+      - name: Lint (shell + kustomize + terraform fmt)
+        run: make lint
+
+  # The real thing, not a simulation: the full $0 lifecycle on kind — up,
+  # seam-contract assertions, chat round-trip, teardown, zero-orphan proof.
+  # If this is green, `make demo` works for anyone who clones the repo.
+  e2e-local:
+    runs-on: ubuntu-latest # docker preinstalled; kind auto-downloads to ./bin
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make demo TEARDOWN=1 (up -> contract -> chat -> down -> verify)
+        run: make demo TEARDOWN=1
+
+      - name: Prove zero orphans (independent of teardown's own check)
+        run: make verify

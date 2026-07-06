@@ -7,7 +7,7 @@ while a phase is running; every phase returns the account to zero residual cost.
 | Phase | Cost footprint | Status |
 |---|---|---|
 | 0 — Scaffolding + $0 chat demo | ~$0 (local kind) | **built** |
-| 1 — Single-GPU modern inference (L4, FP8) | ~$1.2/hr while up | in progress |
+| 1 — Single-GPU modern inference (L4, FP8) | ~$1.2/hr while up | **built** (verified live 2026-07-05) |
 | 2 — Distributed inference | a few $/hr | not started |
 | 3 — GitOps + chat UI | as ph.2 | not started |
 | 4 — Autoscaling + cost autonomy | scales to 0 idle | not started |

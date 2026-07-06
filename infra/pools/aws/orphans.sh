@@ -57,6 +57,20 @@ for arn in ${arns}; do
       st="$(aws kms describe-key --key-id "${id}" --region "${REGION}" \
         --query 'KeyMetadata.KeyState' --output text 2>/dev/null || echo gone)"
       [[ "${st}" == "PendingDeletion" || "${st}" == "gone" ]] && live="gone" || live="yes" ;;
+    *:instance/*)
+      st="$(aws ec2 describe-instances --instance-ids "${id}" --region "${REGION}" \
+        --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo gone)"
+      # 'None': the ID no longer resolves at all (purged past 'terminated').
+      [[ "${st}" == "terminated" || "${st}" == "shutting-down" || "${st}" == "gone" || "${st}" == "None" ]] \
+        && live="gone" || live="yes" ;;
+    *:volume/*)
+      st="$(aws ec2 describe-volumes --volume-ids "${id}" --region "${REGION}" \
+        --query 'Volumes[0].State' --output text 2>/dev/null || echo gone)"
+      # 'available' (unattached) IS a leak — that's the classic orphaned EBS.
+      [[ "${st}" == "gone" ]] && live="gone" || live="yes" ;;
+    *:network-interface/*)
+      aws ec2 describe-network-interfaces --network-interface-ids "${id}" \
+        --region "${REGION}" >/dev/null 2>&1 && live="yes" || live="gone" ;;
     *)
       # Unknown type: refuse to guess — treat as live so a human looks at it.
       live="yes" ;;

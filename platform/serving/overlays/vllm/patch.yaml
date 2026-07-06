@@ -1,0 +1,86 @@
+# vLLM overlay (Phase 1+): the STRUCTURE of GPU serving — image, scheduling,
+# probes, weights cache. It deliberately carries NO model knobs: those live in
+# platform/serving/gpus/<profile>/ (the single source of truth per hardware).
+# Never apply this overlay directly — apply a gpus/<profile>.
+#
+# Cold-start path (ADR-0005):
+#   initContainer syncs the HF cache DOWN from S3 (free+fast via the VPC
+#   gateway endpoint). On a miss vLLM falls back to downloading from HF, and
+#   `make cache-weights` pushes the result UP through the cache-sync sidecar —
+#   so the second boot of any model is fast and NAT-free. On local pools the
+#   pool-context ConfigMap is empty and both steps no-op.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      # Land on (and tolerate) the tainted GPU nodes. The label is set by the
+      # node group AND by GFD once the operator runs — identical on every
+      # NVIDIA GPU (ADR-0002).
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      initContainers:
+        - name: weights-prefetch
+          image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -u
+              if [[ -z "${WEIGHTS_BUCKET:-}" ]]; then
+                echo "no weights bucket in pool-context — skipping prefetch"; exit 0
+              fi
+              echo "prefetching HF cache from s3://${WEIGHTS_BUCKET}/hf-cache"
+              # Best-effort by design: a cache miss or sync failure must not
+              # block serving — vLLM falls back to Hugging Face.
+              aws s3 sync "s3://${WEIGHTS_BUCKET}/hf-cache" /cache --no-progress || \
+                echo "prefetch failed/empty — vLLM will download from HF"
+          envFrom:
+            - configMapRef:
+                name: pool-context
+                optional: true
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /cache
+      containers:
+        - name: server
+          image: vllm/vllm-openai:v0.24.0
+          # args come from platform/serving/gpus/<profile>/ — nothing here.
+          env:
+            - name: HF_HOME
+              value: /cache
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          # Weight load takes minutes; the base liveness probe would kill the
+          # pod mid-load. startupProbe gates liveness until the model is up
+          # (allows ~20 min), after which the base probes take over unchanged.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 120
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /cache
+        # Holds the shared volume open for `make cache-weights` (push the
+        # freshly-downloaded weights to S3). Costs ~nothing; explicit > magic.
+        - name: cache-sync
+          image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+          command: ["/bin/bash", "-c", "trap 'exit 0' TERM; sleep infinity & wait"]
+          envFrom:
+            - configMapRef:
+                name: pool-context
+                optional: true
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /cache
+      volumes:
+        - name: hf-cache
+          emptyDir: {} # node-local; S3 is the cross-lifecycle cache (ADR-0005)

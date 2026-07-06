@@ -1,0 +1,24 @@
+# T4 serving contract (PLAN §5):
+#   - NO hardware FP8 on Turing — fp8 here would silently fall back to slow
+#     emulation. AWQ (INT4) is the honest quantization path; the sentinel gate
+#     flags fp8 landing in this file (CLAUDE.md).
+#   - 16GB VRAM: 7B AWQ (~7GB) + tight KV headroom → max-model-len capped at
+#     4096 and gpu-memory-utilization at 0.85 to survive concurrency.
+#   - 300 GB/s memory bandwidth: decode is bandwidth-bound; expect modest
+#     tokens/sec vs L4 (864 GB/s) — that delta is itself a demo datapoint.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          args:
+            - --model=Qwen/Qwen2.5-Coder-7B-Instruct-AWQ
+            - --served-model-name=gpu-inference
+            - --quantization=awq
+            - --max-model-len=4096
+            - --gpu-memory-utilization=0.85
+            - --port=8000

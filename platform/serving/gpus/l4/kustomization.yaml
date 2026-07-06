@@ -1,0 +1,10 @@
+# GPU profile: l4 — g6.2xlarge (L4 24GB, Ada Lovelace). Phase-1 default.
+# The profile IS a manifest: applied, not transcribed. `make up POOL=aws GPU=l4`
+# applies exactly this. Adding hardware = new sibling directory + one row in
+# the pool's gpu_profiles map (ADR-0002).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../overlays/vllm
+patches:
+  - path: args.yaml

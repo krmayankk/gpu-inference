@@ -1,0 +1,23 @@
+# L4 serving contract (not casual tunables — see PLAN §5):
+#   - fp8 is HARDWARE-accelerated on Ada: ~2x throughput vs FP16, near-lossless.
+#     This flag is exactly why L4 replaced T4 as the Phase-1 GPU (ADR-0004).
+#   - 24GB VRAM: 7B fp8 weights (~8GB) leave real KV-cache headroom, so
+#     max-model-len can be 8192 with room for concurrency.
+#   - --served-model-name pins the public model id: clients (the chat UI, the
+#     contract test) speak to "gpu-inference" on every profile and every pool.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          args:
+            - --model=Qwen/Qwen2.5-Coder-7B-Instruct
+            - --served-model-name=gpu-inference
+            - --quantization=fp8
+            - --max-model-len=8192
+            - --gpu-memory-utilization=0.90
+            - --port=8000

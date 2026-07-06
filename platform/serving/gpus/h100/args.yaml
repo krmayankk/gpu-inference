@@ -1,0 +1,26 @@
+# H100 SXM serving contract (Phase 5, PLAN §5):
+#   - TP=8 across NVLink (3.35 TB/s): the all-reduce cost that makes TP
+#     impractical over PCIe/Ethernet is negligible here. This one flag is the
+#     difference between a 7B on one L4 and a 70B-class model on a node.
+#   - fp8 on Hopper's transformer engine: near-lossless, and the same flag
+#     already proven on L4 — the portability thesis in a diff.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          args:
+            - --model=deepseek-ai/DeepSeek-Coder-V2-Instruct
+            - --served-model-name=gpu-inference
+            - --quantization=fp8
+            - --tensor-parallel-size=8
+            - --max-model-len=32768
+            - --gpu-memory-utilization=0.90
+            - --port=8000
+          resources:
+            limits:
+              nvidia.com/gpu: "8"

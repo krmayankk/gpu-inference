@@ -1,0 +1,8 @@
+# GPU profile: t4 — g4dn.2xlarge (T4 16GB, Turing). The fallback profile if
+# g6 capacity/quota is ever unavailable; otherwise superseded by l4 (ADR-0004).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../overlays/vllm
+patches:
+  - path: args.yaml

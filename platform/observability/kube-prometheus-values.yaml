@@ -1,0 +1,47 @@
+# kube-prometheus-stack values — deliberately lean for an ephemeral cluster.
+# Installed by scripts/up.sh when OBS=1 (default on GPU pools). Release: obs.
+#
+# What matters here (PLAN §5): the DCGM metrics DCGM_FI_DEV_MEM_COPY_UTIL
+# (the real decode bottleneck), DCGM_FI_DEV_FB_USED (KV-cache pressure),
+# GPU_UTIL and POWER_USAGE — surfaced on the standard NVIDIA DCGM dashboard.
+
+prometheus:
+  prometheusSpec:
+    # Scrape every ServiceMonitor in the cluster, not only those carrying this
+    # Helm release's labels — the GPU operator's DCGM ServiceMonitor lives in
+    # another namespace/release and must be discovered.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 24h # ephemeral cluster; long retention is dead weight
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+
+grafana:
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: default
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      # NVIDIA's standard DCGM exporter dashboard.
+      nvidia-dcgm:
+        gnetId: 12239
+        revision: 2
+        datasource: Prometheus
+
+# Trim components that are noise on a short-lived, single-purpose cluster.
+alertmanager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false # managed control plane (EKS) — endpoints not scrapeable
+kubeScheduler:
+  enabled: false

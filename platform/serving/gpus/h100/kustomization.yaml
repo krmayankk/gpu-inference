@@ -1,0 +1,10 @@
+# GPU profile: h100 — 8xH100 SXM burst target (Phase 5). Ships now as the
+# proof that scaling to H100 is a PROFILE, not a rewrite: same overlay, only
+# the knobs change. Unusable until an H100-capable pool exists (Lambda/
+# CoreWeave module) — the aws pool's gpu_profiles map has no h100 row yet.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../overlays/vllm
+patches:
+  - path: args.yaml

@@ -39,7 +39,7 @@ INVARIANT  (byte-identical T4 → 4090 → L40S → A100 → H100):
 
 SWAPPABLE  (the only seam):
   infra/pools/<runpod|aws|lambda|gke>/   ← provisions GPU nodes, emits a kubeconfig
-  values/<gpu>.yaml                      ← model id, tensor/pipeline-parallel size, replicas
+  platform/serving/gpus/<gpu>/           ← model id, quantization, tensor/pipeline-parallel size
 ```
 
 Switching substrate = apply a different pool module + change `tensor-parallel-size`.

@@ -25,7 +25,8 @@ demo-grade. Product-grade always-on is a later, explicit decision (see ADR-0007)
 
 **Decision.** Everything above the node level (GPU Operator, KubeRay, vLLM, ArgoCD,
 observability, UI) is identical across all hardware. Provider/hardware specifics live only in
-`infra/pools/<provider>/` and `values/<gpu>.yaml`.
+`infra/pools/<provider>/` and `platform/serving/gpus/<profile>/` (the per-hardware serving
+contract: model, quantization, parallelism — a manifest that is applied, not transcribed).
 
 **Why.** This is the mechanism — not the hope — behind "scales to H100 blindly." The NVIDIA
 device plugin exposes `nvidia.com/gpu` identically on T4/4090/A100/H100, so workload manifests
@@ -49,20 +50,13 @@ available g4dn hardware means the entire stack is working before the g6 quota ar
 node-group swap is then a single Terraform change, validating ADR-0002 in practice.
 
 **Quota path for g6.** Quota name: "Running On-Demand G and VT instances" (code `L-DB2E81BA`).
-Request via AWS Service Quotas console or:
-```
-aws service-quotas request-service-quota-increase \
-  --service-code ec2 --quota-code L-DB2E81BA \
-  --desired-value 32 --region us-east-1
-```
-Small increases typically resolve in minutes to hours. File now; build on g4dn meanwhile.
-Also confirm g6 availability in the target region:
-```
-aws ec2 describe-instance-type-offerings \
-  --location-type availability-zone \
-  --filters Name=instance-type,Values=g6.2xlarge \
-  --region us-east-1 --output table
-```
+Requested and **approved 2026-07 in us-east-1** (32 vCPUs, verified via the service-quotas API — the ADR’s original request command targeted us-east-1). A us-west-2 request for 32 is PENDING (filed 2026-07-05); the platform region follows wherever quota is actually live.
+
+**Amendment (2026-07): pool = provider, hardware = profile.** The pool was originally named
+`aws-g4dn`; that baked hardware into the provider seam and would have made every GPU a new pool.
+Corrected: the pool is `infra/pools/aws/`; T4/L4 are rows in its `gpu_profiles` map selected by
+`GPU=t4|l4`, paired with `platform/serving/gpus/<profile>/` above the seam. Scaling the hardware
+ladder (t4 → l4 → h100-class) adds rows and profiles, never pools — one seam, two axes.
 
 ---
 
@@ -94,6 +88,13 @@ on quota. The architectural discipline of running on constrained hardware first 
 the KV cache pressure, the decode bandwidth limits, the model size trade-offs — produces better
 operational tuning for all subsequent hardware. It is not a compromise; it is the correct
 order of operations.
+
+**Amendment (2026-07): the quota cleared before Phase 1's first apply — L4 is the Phase-1 GPU.**
+T4-first was a sequencing decision driven by quota latency, not a preference; its premise expired.
+Phase 1 launches directly on g6/L4 (`GPU=l4` default): hardware FP8 from day one, 24GB of KV-cache
+headroom, and ~3× the memory bandwidth for the decode path. The t4 profile remains in the map and
+in `platform/serving/gpus/t4/` as the fallback if g6 capacity is ever unavailable — kept because
+keeping it costs one file, and it documents the Turing/no-FP8 constraint that shaped PLAN §5.
 
 ---
 
@@ -145,3 +146,48 @@ the GPU clusters themselves git-synced CRDs.
 progression is the genuine modern-infra maturity curve and, for a multi-cloud footprint,
 Crossplane (provider CRDs across AWS+GCP+RunPod) fits better than Cluster API (best for
 self-managed clusters on raw VMs).
+
+---
+
+## ADR-0009 — The seam extends to the serving pod; Phase 0 proves the whole invariant at $0
+
+**Decision.** The portability seam (ADR-0002) is realized not only at the GPU node but at the
+**serving pod**. Above a stable `inference` Service speaking the OpenAI `/v1` contract, nothing —
+not the chat UI, not the lifecycle, not the manifests — knows what serves it. Phase 0's substrate
+is a **local `kind` cluster** exposed as a first-class pool module (`infra/pools/local-kind/`,
+`POOL=local-kind`) running a **CPU "mock" pod** that speaks `/v1/chat/completions`. Phase 1 swaps
+*only that pod* for vLLM on EKS g4dn by changing `POOL`; `platform/` is byte-identical.
+
+**Why.** Two forcing functions the plan already carries — "every phase is independently
+demoable" (§8) and "cost hygiene is a feature" (§1) — are strongest when the very first phase
+produces a **working chat demo at zero cost with clean teardown**. Making `kind` a real pool and
+the mock a real OpenAI-compatible backend means Phase 0 exercises the entire invariant stack
+(Service contract, UI, `make up`/`demo`/`down`, zero-orphan proof) before a cent is spent. The
+cheap path becomes *evidence for* ADR-0002 rather than an exception to it: if the identical
+`platform/` manifests serve both the CPU mock and vLLM-on-GPU, the seam is proven, not asserted.
+
+**Consequence.** The serving layer carries a mock overlay (`platform/serving/overlays/mock/`)
+alongside the vLLM overlay. The mock is demo/test infrastructure, never a fallback for real
+inference — it must stay honest about being a mock (it says so in its own replies). `make demo`
+is the per-phase showcase contract; `make down` is the per-phase teardown contract.
+
+---
+
+## ADR-0010 — Managed node groups until Karpenter; never hand-rolled ASGs
+
+**Decision.** EKS capacity is EKS **managed node groups**: `system` (small, untainted — CoreDNS,
+operators, chat, observability) and `gpu` (tainted `nvidia.com/gpu:NoSchedule`, `min_size=0`,
+`AL2023_x86_64_NVIDIA`). Self-managed ASGs are rejected. **Karpenter (Phase 4) replaces the gpu
+node group** with pod-driven NodePools; `system` remains an MNG hosting the Karpenter controller.
+
+**Why.** MNG gives node join, drain-on-scale-down, taints/labels, and the NVIDIA AMI as
+declarations; a self-managed ASG re-implements all of that as userdata and lifecycle hooks. The
+only things self-managed buys (fine-grained provisioning, spot mixing, exotic launch templates)
+are precisely what Karpenter does better — so the self-managed rung of the ladder would be built
+only to be discarded. MNG still creates an ASG underneath, which is where the TTL dead-man's
+switch attaches its scale-to-zero schedule (see `infra/pools/aws/up.sh`).
+
+**Consequence.** Static `desired_size` capacity until Phase 4 — acceptable for single-node
+inference demos; the KEDA/Karpenter pair owns elasticity later. Public API endpoint and node-role
+S3 access are the matching demo-grade simplifications (IRSA + private endpoint are Phase-3
+hardening, noted in docs/phases.md).

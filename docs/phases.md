@@ -6,8 +6,8 @@ while a phase is running; every phase returns the account to zero residual cost.
 
 | Phase | Cost footprint | Status |
 |---|---|---|
-| 0 — Scaffolding | ~$0 (CPU dry-run) | not started |
-| 1 — Single-GPU modern inference | ~$0.3–1/hr | not started |
+| 0 — Scaffolding + $0 chat demo | ~$0 (local kind) | **built** |
+| 1 — Single-GPU modern inference (L4, FP8) | ~$1.2/hr while up | in progress |
 | 2 — Distributed inference | a few $/hr | not started |
 | 3 — GitOps + chat UI | as ph.2 | not started |
 | 4 — Autoscaling + cost autonomy | scales to 0 idle | not started |
@@ -16,38 +16,49 @@ while a phase is running; every phase returns the account to zero residual cost.
 
 ---
 
-## Phase 0 — Scaffolding (no GPU cost)
+## Phase 0 — Scaffolding + $0 chat demo (no GPU cost) — **BUILT**
 
-**Build.** Repo structure; `Makefile` with `up`/`down`; Terraform skeleton + remote state
-backend (S3/R2 + lock); weights-cache bucket/volume; `sentinel.yml` + `CLAUDE.md` wiring
-sentinel as the PR gate; teardown script that enumerates and verifies zero residual resources.
+**Build.** Repo structure; `Makefile` as the single control surface (`up`/`demo`/`down`/`verify`);
+the `local-kind` pool as the $0 substrate; the invariant `platform/` layer (serving base + Service
+`inference` + chat UI); a CPU **mock** overlay that speaks the OpenAI `/v1` API (ADR-0009); the
+`aws` Phase-1 pool + Terraform remote-state backend as ready skeletons; `sentinel.yml` +
+`CLAUDE.md` wiring Sentinel as the PR gate; `orphans.sh` per pool that verifies zero residual
+resources.
 
-**Test.** `make up` provisions a CPU-only cluster; `make down` proves zero orphans. Sentinel
-reviews a trivial PR.
+**Test.** `make demo` on `local-kind` brings the platform up, does a real chat round-trip through
+the OpenAI-compatible endpoint, and (with `TEARDOWN=1`) proves zero orphans. `make lint` builds
+every kustomize overlay. Sentinel reviews a trivial PR.
 
-**Demo.** "One command builds and destroys the whole control plane, leaving nothing."
+**Demo.** "One command stands up a working ChatGPT-style chat backed by the same manifests that
+will run on a GPU — then destroys it, leaving nothing." The seam (ADR-0002/0009) is established
+and *demonstrated* from this phase, not just designed.
 
-**Tear down.** Inherent — this phase *is* the lifecycle proof.
+**Tear down.** `make down` → `verify-zero-orphans` — the lifecycle proof is inherent.
 
 ---
 
-## Phase 1 — Single-GPU inference on EKS (g4dn → g6)
+## Phase 1 — Single-GPU inference on EKS (L4 direct; quota cleared 2026-07)
 
-**Build.** EKS cluster via Terraform (managed node group, g4dn.2xlarge); NVIDIA GPU Operator
-(device plugin, DCGM exporter, container toolkit); vLLM serving a 7–13B model (INT4/INT8 on
-T4 — no hardware FP8 on Turing); DCGM → Prometheus → Grafana with the key inference metrics
-(`MEM_COPY_UTIL`, `FB_USED`, `GPU_UTIL`, `POWER_USAGE`).
+**Build.** EKS via the `aws` pool (system node group for the untainted world + one GPU node
+group, `AL2023_x86_64_NVIDIA` AMI); NVIDIA GPU Operator with driver/toolkit disabled (the AMI
+owns them — the operator contributes device plugin, GFD labels, DCGM); vLLM `v0.24` serving
+**Qwen2.5-Coder-7B at hardware FP8 on L4** (`GPU=l4`, ADR-0004 amendment); S3 pull-through
+weights cache (prefetch initContainer + `make cache-weights`, NAT-free via gateway endpoint);
+DCGM → Prometheus → Grafana (`OBS=1` default on GPU pools) with the PLAN §5 metrics
+(`MEM_COPY_UTIL`, `FB_USED`, `GPU_UTIL`, `POWER_USAGE`); **TTL dead-man's switch** zeroing the
+GPU ASG after `ttl_hours`.
 
-Node-group swap to **g6.2xlarge** (L4, Ada, FP8) once quota clears — no manifest changes,
-only the Terraform node group block. FP8 path enabled (`--quantization fp8`) after swap.
+**Test.** The same `scripts/contract.py` that gates the mock passes against vLLM-on-L4 — the
+seam contract holding across substrates IS the phase's test. Plus: tokens/sec and VRAM visible
+in Grafana; `make down` → orphan sweep keyed on `Ephemeral=true` (API errors fail the proof —
+a blind sweep never reports clean).
 
-**Test.** OpenAI-compatible endpoint returns completions; tokens/sec and VRAM utilization
-visible in Grafana; `make down` leaves zero AWS resources (verify via `aws resourcegroupstaggingapi get-resources`).
+**Demo.** The Phase-0 chat website, unchanged, now answering from a real model on a real GPU:
+`make up POOL=aws GPU=l4 CONFIRM_SPEND=1` → `make chat`. One diff between $0 mock and CUDA.
 
-**Demo.** End-to-end inference stack on managed K8s: model → GPU Operator → vLLM → OpenAI API
-→ Grafana observability. The portability seam (ADR-0002) is established from this phase.
-
-**Tear down.** `make down`; model weights remain in S3 for next spin-up.
+**Tear down.** `make down`; weights persist in the S3 cache (60-day lifecycle) for the next
+spin-up. Security note for the record: weights-bucket access rides the node role in Phase 1
+(single-tenant, ephemeral) — IRSA/Pod Identity is the Phase-3 hardening item.
 
 ---
 
@@ -55,6 +66,13 @@ visible in Grafana; `make down` leaves zero AWS resources (verify via `aws resou
 
 **Build.** KubeRay RayCluster; vLLM with `tensor-parallel-size` across multiple GPUs (and a
 pipeline-parallel variant across nodes for the learning value); a 32–72B INT4/FP8 model.
+
+**DRA (Dynamic Resource Allocation)** — the SOTA successor to the device-plugin model Phase 1
+uses: GPUs as `ResourceClaim`s with structured parameters (claim by VRAM/arch, dynamic sharing)
+via the NVIDIA DRA driver. Phase 2 migrates the serving overlay's `nvidia.com/gpu: N` request to
+a claim, keeping the device-plugin path as fallback. Honest scope note: the headline DRA demo —
+dynamic MIG partitioning — requires A100/H100-class silicon (L4 has no MIG); that lands with the
+Phase-5 burst. Full-GPU claims are demonstrable on L4 here.
 
 **Test.** Throughput vs single-GPU; verify parallelism placement; saturate and measure.
 

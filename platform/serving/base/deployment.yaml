@@ -1,0 +1,41 @@
+# The invariant serving Deployment. Overlays swap ONLY the pod: mock (CPU, $0)
+# in Phase 0, vLLM (GPU) in Phase 1+. The name, the Service in front of it, and
+# the /v1 contract never change — that is the portability seam (ADR-0002/0009).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+  labels:
+    app: inference
+    app.kubernetes.io/part-of: gpu-inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference
+  template:
+    metadata:
+      labels:
+        app: inference
+    spec:
+      containers:
+        - name: server
+          # placeholder; every overlay replaces image + command/args.
+          image: python:3.12-slim
+          ports:
+            - name: http
+              containerPort: 8000
+          # /health is vLLM's health path; the mock serves it too, so the probe
+          # is invariant across overlays.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15

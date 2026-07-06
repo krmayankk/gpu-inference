@@ -1,0 +1,16 @@
+# The stable endpoint everything above the seam talks to. Its name (`inference`)
+# and port (8000) are part of the contract; the chat UI proxies /v1 here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+  labels:
+    app: inference
+    app.kubernetes.io/part-of: gpu-inference
+spec:
+  selector:
+    app: inference
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

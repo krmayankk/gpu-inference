@@ -1,0 +1,24 @@
+# Mock overlay: run the stdlib server mounted from a ConfigMap. No image build.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          image: python:3.12-slim
+          command: ["python", "/app/server.py"]
+          env:
+            - name: MODEL_ID
+              value: gpu-inference-mock-cpu
+            - name: PORT
+              value: "8000"
+          volumeMounts:
+            - name: src
+              mountPath: /app
+      volumes:
+        - name: src
+          configMap:
+            name: inference-mock-src

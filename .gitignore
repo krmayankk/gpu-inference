@@ -5,6 +5,14 @@
 .env
 *.kubeconfig
 kubeconfig
+.kubeconfig
+
+# tool-local downloads (kind etc. bootstrapped into ./bin)
+/bin/
+
+# local run artifacts
+*.log
 __pycache__/
 .venv/
 .DS_Store
+.pool-context

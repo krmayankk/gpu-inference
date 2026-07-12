@@ -1,8 +1,11 @@
 # Sentinel config — what runs on each PR and where. See CLAUDE.md for the
 # conventions change_completeness enforces on this repo. Repo-specific
 # judgment skills live in .sentinel/skills/ (portability_seam,
-# serving_contract, cost_teardown_proof) — custom skills always run and are
-# not filtered by routing.
+# serving_contract, cost_teardown_proof). They are AUTO-DISCOVERED — the
+# runner scans .sentinel/skills/*.md (load_custom_skills in sentinel's
+# sentinel/skills/custom.py); they need no entry in `skills:` below, always
+# run, and are not filtered by routing. Verified live: sentinel's review of
+# PR #1 shows all three firing.
 #
 # fail_on is empty on purpose: warn-only until the gate has proven itself on
 # real PRs (the onboard principle — nothing blocks merges without a human

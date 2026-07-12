@@ -20,7 +20,8 @@ export TAG_MANAGED_BY="make"
 # --- Repo layout -----------------------------------------------------------
 # ROOT is the repo root regardless of the caller's CWD.
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export ROOT="$(cd "${LIB_DIR}/.." && pwd)"
+ROOT="$(cd "${LIB_DIR}/.." && pwd)"
+export ROOT
 export BIN_DIR="${ROOT}/bin"               # tool-local downloads (gitignored)
 # Auto-downloaded tools (kind, helm) resolve before system ones; keeps the
 # platform zero-install without touching the host.

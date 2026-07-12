@@ -4,14 +4,23 @@
 # serving_contract, cost_teardown_proof). They are AUTO-DISCOVERED — the
 # runner scans .sentinel/skills/*.md (load_custom_skills in sentinel's
 # sentinel/skills/custom.py); they need no entry in `skills:` below, always
-# run, and are not filtered by routing. Verified live: sentinel's review of
-# PR #1 shows all three firing.
+# run, and are not filtered by routing. Don't take this comment's word for
+# it: cross_repo below checks out krmayankk/sentinel into the review's
+# search paths, so any skill can grep load_custom_skills in the runner's
+# own source and verify.
 #
 # fail_on is empty on purpose: warn-only until the gate has proven itself on
 # real PRs (the onboard principle — nothing blocks merges without a human
 # turning it on). Flip to [critical] once trusted.
 skills:
-  - change_completeness
+  # cross_repo: the gate's own runner is part of this repo's trusted surface —
+  # checking it out lets reviews verify claims about sentinel's behavior
+  # (e.g. custom-skill auto-discovery) against its source instead of
+  # speculating. The checkout lands on the shared context, so every skill in
+  # the run (custom ones included) can search it.
+  - change_completeness:
+      cross_repo:
+        - krmayankk/sentinel
   - workflow_security
 
 fail_on: []

@@ -11,7 +11,13 @@
 #
 # fail_on is empty on purpose: warn-only until the gate has proven itself on
 # real PRs (the onboard principle — nothing blocks merges without a human
-# turning it on). Flip to [critical] once trusted.
+# turning it on). Graduation criterion (so this can't drift forever, per the
+# gate's own review of PR #1): after 5 reviewed PRs with every critical
+# finding triaged as true-positive-or-accepted, flip to [critical].
+# Baseline note (2026-07-12): existing profiles audited against the custom
+# skills before the gate shipped — all pin served-model-name; h100 TP=8
+# matches its nvidia.com/gpu:8; h100's missing pool row is the documented
+# Phase-5 placeholder, not a latent violation.
 skills:
   # cross_repo: the gate's own runner is part of this repo's trusted surface —
   # checking it out lets reviews verify claims about sentinel's behavior

@@ -11,7 +11,10 @@ banner "lint"
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
   # lib.sh is sourced, not executed; -x follows the source directives.
-  shellcheck -x "${ROOT}/scripts/"*.sh "${ROOT}/infra/pools/"*/*.sh || rc=1
+  # -S warning: info-level notes (SC1091 unfollowable sources, SC2015 style)
+  # are noise here — the header's contract is "hard-fails only on real
+  # violations", and warning+ is that line.
+  shellcheck -x -S warning "${ROOT}/scripts/"*.sh "${ROOT}/infra/pools/"*/*.sh || rc=1
 else
   warn "shellcheck not installed — skipping shell lint"
 fi

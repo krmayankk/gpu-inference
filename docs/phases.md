@@ -74,6 +74,17 @@ a claim, keeping the device-plugin path as fallback. Honest scope note: the head
 dynamic MIG partitioning — requires A100/H100-class silicon (L4 has no MIG); that lands with the
 Phase-5 burst. Full-GPU claims are demonstrable on L4 here.
 
+**Serving-orchestration layer (evaluate, then adopt in 2 or 3).** Above the engine, the industry
+has converged on inference-aware orchestration: **NVIDIA Dynamo** (1.0 GA 2026-03 — disaggregated
+prefill/decode, KV-cache-aware routing, multi-tier KV offload; engine-agnostic over vLLM/SGLang/
+TRT-LLM), **llm-d** (Red Hat/Google/IBM/CoreWeave-led, Kubernetes-native: vLLM + Gateway API
+Inference Extension/Envoy; NVIDIA is contributing Dynamo's Planner + KV Cache Manager to it), and
+**AIBrix** (ByteDance's vLLM control plane, the most production-proven of the three). Today our
+`inference` Service load-balances blindly; these route by KV locality and split prefill from
+decode. The seam holds either way — this is a `platform/` tenant, not a rewrite. Bias: llm-d fits
+the GitOps/K8s-native architecture best; Dynamo is the NVIDIA-stack résumé answer; measure one of
+them against the plain Service as part of this phase's throughput work.
+
 **Test.** Throughput vs single-GPU; verify parallelism placement; saturate and measure.
 
 **Demo.** Distributed inference across multiple GPUs; parallelism and placement observable end-to-end.

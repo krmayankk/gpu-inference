@@ -37,6 +37,25 @@ with the seam intact; these are edges to sand.
 - Next spin-up prefetches weights from S3 (gateway endpoint, NAT-free) — cold
   start drops from ~25 min to ~15.
 
+## Production-grade EKS hardening (Phase 3+, expanded 2026-07)
+Phase 3 already carries IRSA and private-endpoint+SSM. A production EKS story
+(also the job-interview bar) additionally needs, roughly in order:
+- **Terraform plan-on-PR CI** — `terraform plan` posted to the PR, judged by
+  sentinel alongside the diff (the gate reading blast radius from the plan,
+  not just HCL). Highest leverage: it upgrades both repos at once.
+- KMS envelope encryption for K8s secrets; control-plane audit logs on.
+- Explicit `access_entries` replacing `enable_cluster_creator_admin_permissions`.
+- ECR/STS/EC2 interface endpoints (today only S3 gateway bypasses NAT).
+- State locking on the bootstrap backend; pinned provider/module versions audit.
+- Karpenter (already Phase 4) subsumes static node-group sizing.
+
+## Go surface (job-relevant, deliberate)
+The repo is currently HTML/JS + nginx (chat), Python (mock + contract), bash
+(lifecycle), HCL. No Go. The natural Go homes, in phase order: the Phase-4
+**operator agent** (orphan/cost-drift detector as a controller-runtime
+operator opening cleanup PRs) and/or a Phase-3 chat/gateway service replacing
+nginx. Don't add Go for its own sake before those.
+
 ## Phase 2 starting points
 - KubeRay operator + RayCluster; vLLM TP within a g6.12xlarge (4× L4) or
   PP across g6.2xlarge nodes — decide after measuring single-node TP.

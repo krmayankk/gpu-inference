@@ -126,8 +126,21 @@ plus an agent-authored cleanup PR.
 
 ## Phase 5 — Multi-cloud H100/H200 burst
 
-**Build.** Add a RunPod/Lambda H100/H200 Instant Cluster pool module; register it to the same
-control plane; run the *same* manifests with only `tensor-parallel-size` + pool changed.
+**Build.** An H100/H200 pool, chosen under two hard constraints: it must be real Kubernetes
+(the seam's precondition — ADR-0002/0003; RunPod Instant Clusters are Slurm, disqualified) and
+no long-term capacity commitment (burst = hours/days). Candidates in preference order
+(amended 2026-07, replacing the original "RunPod/Lambda Instant Cluster" line, which violated
+both constraints):
+1. **AWS Capacity Blocks for ML + p5 row in the existing aws pool** — EKS managed node groups
+   support Capacity Blocks (custom launch template, which the pool already uses); a block is a
+   fixed-cost 1-day-minimum reservation, not a contract. Cheapest in code: one `gpu_profiles`
+   row + the already-written `gpus/h100/` profile; no new pool.
+2. **Nebius managed Kubernetes** — on-demand H100 (~$3.85/GPU/hr, no commitment) with managed
+   K8s; a genuine second-provider pool (~550 lines) that proves the multi-cloud thesis for real.
+3. GKE A3 + DWS flex-start, or Crusoe/CoreWeave managed K8s — fallbacks if 1–2 shut down.
+Self-managed kubeadm on Lambda/bare-metal VMs only if every managed-K8s path is closed.
+Register the chosen pool to the same control plane; run the *same* manifests with only
+`tensor-parallel-size` + pool changed.
 
 **Test.** Same model on dev GPU vs H100 cluster; capture latency/throughput/cost side-by-side.
 

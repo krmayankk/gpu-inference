@@ -1,0 +1,18 @@
+# GPU profile: l4x4 — 4× g6.2xlarge (4× L4 24GB across 4 nodes). Phase 2.
+#
+# This profile does NOT patch the single-pod vLLM Deployment: a 32B-class
+# model cannot fit one L4, so the workload below the seam is a KubeRay
+# RayCluster running vLLM with pipeline parallelism (PP=4) across nodes
+# (ADR-0011). The seam is untouched — the `inference` Service here has the
+# same name and port as everywhere else, and everything above it (chat UI,
+# contract test) cannot tell this profile from the single-GPU one.
+#
+# Why PP across nodes and not TP: TP's all-reduce per layer would crawl over
+# ENA networking between g6.2xlarge nodes; PP only ships activations at stage
+# boundaries. TP=4 within a single g6.12xlarge is the comparison point once
+# the 48-vCPU quota clears (see docs/backlog.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - raycluster.yaml
+  - service.yaml

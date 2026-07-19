@@ -27,12 +27,17 @@ locals {
   azs = slice(data.aws_availability_zones.available.names, 0, 2)
 
   # The hardware profile map. Adding a GPU = adding a row (+ its kustomization
-  # in platform/serving/gpus/<key>/). Nothing else changes.
+  # in platform/serving/gpus/<key>/). Nothing else changes. node_count is the
+  # capacity that backs the profile's parallelism (ADR-0002: parallelism
+  # travels with its hardware) — l4x4's PP=4 is 4 nodes × 1 GPU, sized to fit
+  # the 32-vCPU G-quota (4× g6.2xlarge = 32; a single g6.12xlarge would need 48).
   gpu_profiles = {
-    t4 = { instance_type = "g4dn.2xlarge" } # 1x T4  16GB, Turing — no hw FP8
-    l4 = { instance_type = "g6.2xlarge" }   # 1x L4  24GB, Ada    — hw FP8
+    t4   = { instance_type = "g4dn.2xlarge", node_count = 1 } # 1x T4  16GB, Turing — no hw FP8
+    l4   = { instance_type = "g6.2xlarge", node_count = 1 }   # 1x L4  24GB, Ada    — hw FP8
+    l4x4 = { instance_type = "g6.2xlarge", node_count = 4 }   # 4x L4 across 4 nodes — PP=4 (Phase 2)
   }
   gpu_instance_type = local.gpu_profiles[var.gpu_profile].instance_type
+  gpu_node_count    = coalesce(var.gpu_desired_size, local.gpu_profiles[var.gpu_profile].node_count)
 
   # Weights cache bucket: created by infra/bootstrap (persistent, ADR-0005);
   # referenced here by its deterministic name.
@@ -108,7 +113,7 @@ module "eks" {
     gpu = {
       instance_types = [local.gpu_instance_type]
       ami_type       = "AL2023_x86_64_NVIDIA" # driver + container toolkit in the AMI
-      desired_size   = var.gpu_desired_size
+      desired_size   = local.gpu_node_count
       min_size       = 0 # scale-to-zero ready; TTL schedule uses this
       max_size       = 4
       # The default 20GiB root cannot hold the vLLM image (~10GB unpacked)

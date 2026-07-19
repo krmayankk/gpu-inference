@@ -72,3 +72,21 @@ nginx. Don't add Go for its own sake before those.
 - First `make cache-weights` after l4x4 boot: pushes the ~33GB Qwen3-32B-FP8
   cache so subsequent 4-node boots prefetch from S3 (NAT-free) instead of
   4× HF downloads.
+
+## Helm chart pinning (hardening ladder addendum, 2026-07-19)
+All in-cluster helm installs (gpu-operator, kube-prometheus-stack,
+kuberay-operator) currently float on latest — consistent demo-grade
+convention, but each `make up` can pull a different operator version.
+Production-grade: pin chart + app versions in one place (a versions.env
+sourced by up.sh), bump deliberately in PRs the gate reviews. One PR, all
+charts at once. *Phase 3 ladder.*
+
+## Token / cache / cost observability (user ask, 2026-07-19)
+vLLM already exports the raw series (`/metrics`): prompt/generation token
+counters, TTFT/TPOT latencies, KV-cache utilization, prefix-cache hit rate.
+Build the Grafana dashboard that turns them into the operator's view:
+tokens/sec per model, cache hit rates, and **$/1M-tokens computed from the
+pool's live $/hr** (pool-context already carries pool identity — add the
+hourly price there and the cost view stays seam-clean; nothing above the
+seam learns a provider). Feeds Phase 4's cost-autonomy loop directly: the
+same series the operator agent will act on. *Phase 2 stretch or early Phase 3.*

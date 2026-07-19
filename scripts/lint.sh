@@ -78,28 +78,34 @@ log "repo invariants"
 
 # Every pool must ship the lifecycle triple — a pool without orphans.sh
 # cannot prove teardown (ADR-0006).
+pool_rc=0
 for pool in "${ROOT}"/infra/pools/*/; do
   for f in up.sh down.sh orphans.sh; do
     if [[ ! -f "${pool}${f}" ]]; then
-      warn "pool $(basename "${pool}") missing ${f} — cannot prove teardown"; rc=1
+      warn "pool $(basename "${pool}") missing ${f} — cannot prove teardown"; pool_rc=1; rc=1
     fi
   done
 done
-ok "pools ship up.sh/down.sh/orphans.sh"
+[[ $pool_rc -eq 0 ]] && ok "pools ship up.sh/down.sh/orphans.sh"
 
 # Every GPU profile must pin the public model id (ADR-0002).
+prof_rc=0
 for prof in "${ROOT}"/platform/serving/gpus/*/; do
   if ! grep -rq -- "--served-model-name=gpu-inference" "${prof}"; then
-    warn "profile $(basename "${prof}") does not pin --served-model-name=gpu-inference"; rc=1
+    warn "profile $(basename "${prof}") does not pin --served-model-name=gpu-inference"; prof_rc=1; rc=1
   fi
 done
-ok "profiles pin served-model-name=gpu-inference"
+[[ $prof_rc -eq 0 ]] && ok "profiles pin served-model-name=gpu-inference"
 
 # fp8 must never land in the t4 profile — Turing silently emulates it
-# (ADR-0004). Matches actual vLLM args, not prose/comments about fp8.
-if grep -rEq -- '^\s*-\s*--(quantization|kv-cache-dtype)=fp8' "${ROOT}/platform/serving/gpus/t4/"; then
-  warn "fp8 arg in the t4 profile (Turing has no hardware FP8)"; rc=1
+# (ADR-0004). Matches any quantization/kv-cache-dtype fp8 setting in any YAML
+# shape (list item, env value, inline string); comment lines are excluded so
+# prose ABOUT fp8 ("Turing has no hw FP8") doesn't trip it.
+if grep -rhE -- '(quantization|kv-cache-dtype)[=: ]+"?fp8' "${ROOT}/platform/serving/gpus/t4/" \
+    | grep -vE '^\s*#' | grep -q .; then
+  warn "fp8 setting in the t4 profile (Turing has no hardware FP8)"; rc=1
+else
+  ok "no fp8 settings in t4"
 fi
-ok "no fp8 args in t4"
 
 [[ $rc -eq 0 ]] && ok "lint passed" || die "lint found issues"

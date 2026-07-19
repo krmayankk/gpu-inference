@@ -16,13 +16,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       # Deterministic linters beyond shellcheck: manifest schemas + workflow
-      # lint. Pinned versions — determinism is the point of this layer.
-      - name: Install kubeconform + actionlint
+      # lint. Pinned versions AND checksum-verified — no curl|tar straight
+      # into /usr/local/bin (the gate flagged the unverified pipe, correctly).
+      - name: Install kubeconform + actionlint (checksum-verified)
         run: |
-          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
-            | sudo tar -xz -C /usr/local/bin kubeconform
-          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz \
-            | sudo tar -xz -C /usr/local/bin actionlint
+          set -euo pipefail
+          cd "$(mktemp -d)"
+          curl -fsSLO https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/CHECKSUMS \
+            | sha256sum --check --ignore-missing
+          sudo tar -xzf kubeconform-linux-amd64.tar.gz -C /usr/local/bin kubeconform
+          curl -fsSLO https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_checksums.txt \
+            | sha256sum --check --ignore-missing
+          sudo tar -xzf actionlint_1.7.7_linux_amd64.tar.gz -C /usr/local/bin actionlint
 
       - uses: hashicorp/setup-terraform@v3
         with:

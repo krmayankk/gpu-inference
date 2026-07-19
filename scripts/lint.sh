@@ -24,6 +24,7 @@ OVERLAYS=(
   platform/serving/overlays/mock
   platform/serving/gpus/t4
   platform/serving/gpus/l4
+  platform/serving/gpus/l4x4
   platform/serving/gpus/h100
   platform/chat
 )

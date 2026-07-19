@@ -64,3 +64,11 @@ nginx. Don't add Go for its own sake before those.
 - Model target: 32B-class INT4/FP8 (Qwen2.5-Coder-32B fits 4× L4 TP=4).
 - The t4/l4/h100 profile mechanism is ready for a `l4x4` profile — one
   directory + one gpu_profiles row, per ADR-0003 amendment.
+
+## Phase 2 measurements (added 2026-07-19)
+- **File the 48-vCPU G-quota increase in us-east-1** (L-DB2E81BA; needs MFA
+  session — human step): unlocks g6.12xlarge for the single-node TP=4 vs
+  multi-node PP=4 comparison the phase plan calls for.
+- First `make cache-weights` after l4x4 boot: pushes the ~33GB Qwen3-32B-FP8
+  cache so subsequent 4-node boots prefetch from S3 (NAT-free) instead of
+  4× HF downloads.

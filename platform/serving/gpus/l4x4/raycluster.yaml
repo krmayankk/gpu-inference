@@ -79,13 +79,12 @@ spec:
             env:
               - name: HF_HOME
                 value: /cache
+            # Only the API port is declared; Ray's GCS/dashboard ports stay
+            # cluster-internal (pod-to-pod reachability doesn't need them
+            # named, and the Service only fronts 8000).
             ports:
               - name: http
                 containerPort: 8000
-              - name: gcs
-                containerPort: 6379
-              - name: dashboard
-                containerPort: 8265
             resources:
               limits:
                 nvidia.com/gpu: "1"

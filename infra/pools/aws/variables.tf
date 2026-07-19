@@ -33,15 +33,20 @@ variable "gpu_profile" {
   default     = "l4"
 
   validation {
-    condition     = contains(["t4", "l4"], var.gpu_profile)
-    error_message = "gpu_profile must be one of: t4, l4 (add the profile to local.gpu_profiles and platform/serving/gpus/ first)."
+    condition     = contains(["t4", "l4", "l4x4"], var.gpu_profile)
+    error_message = "gpu_profile must be one of: t4, l4, l4x4 (add the profile to local.gpu_profiles and platform/serving/gpus/ first)."
   }
 }
 
 variable "gpu_desired_size" {
-  description = "GPU node count. 1 for Phase 1; Karpenter owns this in Phase 4."
+  description = <<-EOT
+    GPU node count override. Defaults (null) to the profile's node_count, so
+    capacity follows the profile and parallelism always has the GPUs to back
+    it (ADR-0002). Karpenter owns elasticity in Phase 4.
+  EOT
   type        = number
-  default     = 1
+  default     = null
+  nullable    = true
 }
 
 variable "ttl_hours" {

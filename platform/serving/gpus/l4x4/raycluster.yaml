@@ -1,0 +1,159 @@
+# RayCluster: 1 head + 3 workers, one L4 each — the substrate for vLLM PP=4.
+#
+# Serving contract (ADR-0002/0004, enforced by sentinel):
+#   - --pipeline-parallel-size=4 is backed by gpu_profiles.l4x4.node_count=4
+#     in infra/pools/aws/ and by nvidia.com/gpu: "1" on each of the 4 pods.
+#   - Model: Qwen3-32B-FP8 — the official pre-quantized fp8 checkpoint
+#     (~33GB vs ~65GB bf16: halves the cold-start download and skips online
+#     quantization). fp8 is hardware-accelerated on Ada (never in gpus/t4/).
+#   - --served-model-name=gpu-inference pins the public id on this profile
+#     like every other.
+#
+# The head container owns its command (ray.io/overwrite-container-cmd): it
+# starts the Ray head, then execs vLLM with the Ray distributed backend —
+# vLLM joins the local Ray cluster and places the 4 PP stages on the 4 GPUs.
+# Workers keep the operator-generated `ray start` (join via the head svc).
+#
+# Weights (ADR-0005): same S3 pull-through prefetch as the vllm overlay, per
+# pod — each PP stage reads its own layers from the local HF cache.
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: inference
+  labels:
+    app.kubernetes.io/part-of: gpu-inference
+spec:
+  rayVersion: "2.44.0"
+  headGroupSpec:
+    rayStartParams:
+      num-gpus: "1"
+      dashboard-host: "0.0.0.0"
+    template:
+      metadata:
+        annotations:
+          ray.io/overwrite-container-cmd: "true"
+      spec:
+        nodeSelector:
+          nvidia.com/gpu.present: "true"
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        initContainers:
+          - name: weights-prefetch
+            image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+            command: ["/bin/bash", "-c"]
+            args:
+              - |
+                set -u
+                if [[ -z "${WEIGHTS_BUCKET:-}" ]]; then
+                  echo "no weights bucket in pool-context — skipping prefetch"; exit 0
+                fi
+                echo "prefetching HF cache from s3://${WEIGHTS_BUCKET}/hf-cache"
+                aws s3 sync "s3://${WEIGHTS_BUCKET}/hf-cache" /cache --no-progress || \
+                  echo "prefetch failed/empty — vLLM will download from HF"
+            envFrom:
+              - configMapRef:
+                  name: pool-context
+                  optional: true
+            volumeMounts:
+              - name: hf-cache
+                mountPath: /cache
+        containers:
+          - name: ray-head
+            image: vllm/vllm-openai:v0.24.0 # ships Ray; one image for head+workers
+            # KubeRay honors this command because of the overwrite annotation:
+            # start the head, then run the API server on top of the Ray cluster.
+            command: ["/bin/bash", "-lc"]
+            args:
+              - |
+                ray start --head --num-gpus=1 --dashboard-host=0.0.0.0 --disable-usage-stats && \
+                exec vllm serve Qwen/Qwen3-32B-FP8 \
+                  --served-model-name=gpu-inference \
+                  --pipeline-parallel-size=4 \
+                  --tensor-parallel-size=1 \
+                  --distributed-executor-backend=ray \
+                  --max-model-len=8192 \
+                  --gpu-memory-utilization=0.90 \
+                  --port=8000
+            env:
+              - name: HF_HOME
+                value: /cache
+            # Only the API port is declared; Ray's GCS/dashboard ports stay
+            # cluster-internal (pod-to-pod reachability doesn't need them
+            # named, and the Service only fronts 8000).
+            ports:
+              - name: http
+                containerPort: 8000
+            resources:
+              limits:
+                nvidia.com/gpu: "1"
+            # 4 nodes must join + 33GB of fp8 weights must load across stages;
+            # gate liveness for up to ~30 min like the single-GPU overlay.
+            startupProbe:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+              failureThreshold: 180
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+            volumeMounts:
+              - name: hf-cache
+                mountPath: /cache
+        volumes:
+          - name: hf-cache
+            emptyDir: {} # node-local; S3 is the cross-lifecycle cache (ADR-0005)
+  workerGroupSpecs:
+    - groupName: gpu-workers
+      replicas: 3
+      minReplicas: 3
+      maxReplicas: 3
+      rayStartParams:
+        num-gpus: "1"
+      template:
+        spec:
+          nodeSelector:
+            nvidia.com/gpu.present: "true"
+          tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+          initContainers:
+            - name: weights-prefetch
+              image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -u
+                  if [[ -z "${WEIGHTS_BUCKET:-}" ]]; then
+                    echo "no weights bucket in pool-context — skipping prefetch"; exit 0
+                  fi
+                  echo "prefetching HF cache from s3://${WEIGHTS_BUCKET}/hf-cache"
+                  aws s3 sync "s3://${WEIGHTS_BUCKET}/hf-cache" /cache --no-progress || \
+                    echo "prefetch failed/empty — vLLM will download from HF"
+              envFrom:
+                - configMapRef:
+                    name: pool-context
+                    optional: true
+              volumeMounts:
+                - name: hf-cache
+                  mountPath: /cache
+          containers:
+            - name: ray-worker
+              image: vllm/vllm-openai:v0.24.0
+              env:
+                - name: HF_HOME
+                  value: /cache
+              resources:
+                limits:
+                  nvidia.com/gpu: "1"
+              volumeMounts:
+                - name: hf-cache
+                  mountPath: /cache
+          volumes:
+            - name: hf-cache
+              emptyDir: {}

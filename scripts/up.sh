@@ -52,6 +52,22 @@ if [[ "${GPU_CAPABLE}" == "1" ]]; then
     --wait --timeout 10m
 fi
 
+# --- 3.5 KubeRay operator (invariant on GPU pools since Phase 2) ------------
+# ADR-0002 lists KubeRay in the invariant stack; multi-GPU profiles (l4x4+)
+# realize their parallelism as RayClusters (ADR-0011). The operator idles at
+# ~one small pod when no RayCluster exists, so single-GPU pools pay nothing.
+if [[ "${GPU_CAPABLE}" == "1" ]]; then
+  require helm
+  log "KubeRay operator (RayCluster CRD + controller)"
+  helm --kubeconfig "${KUBECONFIG_PATH}" repo add kuberay \
+    https://ray-project.github.io/kuberay-helm/ >/dev/null 2>&1 || true
+  helm --kubeconfig "${KUBECONFIG_PATH}" repo update >/dev/null
+  helm --kubeconfig "${KUBECONFIG_PATH}" upgrade --install kuberay-operator \
+    kuberay/kuberay-operator \
+    --namespace kuberay --create-namespace \
+    --wait --timeout 5m
+fi
+
 # --- 4. platform (invariant across all pools) ------------------------------
 log "namespace ${NAMESPACE}"
 k create namespace "${NAMESPACE}" --dry-run=client -o yaml | k apply -f - >/dev/null
@@ -82,7 +98,19 @@ k apply -k "${ROOT}/platform/chat" >/dev/null
 log "waiting for rollout"
 # vLLM cold start = image pull (~10GB) + weight fetch; give it real time.
 INFER_TIMEOUT="$([[ "${SERVING}" == "vllm" ]] && echo 1800s || echo 240s)"
-k -n "${NAMESPACE}" rollout status deploy/inference --timeout="${INFER_TIMEOUT}"
+if k -n "${NAMESPACE}" get deploy/inference >/dev/null 2>&1; then
+  k -n "${NAMESPACE}" rollout status deploy/inference --timeout="${INFER_TIMEOUT}"
+else
+  # Ray-based profile (ADR-0011): the serving pod is the Ray head; it goes
+  # Ready only after vLLM's /health passes, i.e. all PP stages are placed.
+  log "ray-based profile: waiting for head pod (PP stages placing across workers)"
+  for _ in $(seq 60); do
+    k -n "${NAMESPACE}" get pod -l ray.io/node-type=head -o name 2>/dev/null | grep -q . && break
+    sleep 5
+  done
+  k -n "${NAMESPACE}" wait pod -l ray.io/node-type=head \
+    --for=condition=Ready --timeout="${INFER_TIMEOUT}"
+fi
 k -n "${NAMESPACE}" rollout status deploy/chat --timeout=120s
 
 banner "platform is up"

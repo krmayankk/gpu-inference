@@ -1,0 +1,19 @@
+# The SAME stable endpoint as every other profile (name `inference`, port
+# 8000, OpenAI /v1) — the seam contract (ADR-0002/0009). Here it fronts the
+# Ray head pod, where the vLLM API server runs; the PP stages behind it are
+# invisible to clients, exactly as a single GPU would be.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+  labels:
+    app: inference
+    app.kubernetes.io/part-of: gpu-inference
+spec:
+  selector:
+    ray.io/cluster: inference
+    ray.io/node-type: head
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

@@ -116,7 +116,7 @@ module "eks" {
       desired_size   = local.gpu_node_count
       min_size       = 0 # scale-to-zero ready; TTL schedule uses this
       # max must never be below desired or the apply fails — follow the profile.
-      max_size       = max(4, local.gpu_node_count)
+      max_size = max(4, local.gpu_node_count)
       # The default 20GiB root cannot hold the vLLM image (~10GB unpacked)
       # plus an HF weights cache — kubelet evicts the pod mid-image-pull
       # (observed live: 'no space left on device', DiskPressure taint).

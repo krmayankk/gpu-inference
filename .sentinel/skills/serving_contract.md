@@ -20,8 +20,12 @@ quantization changes must travel with the hardware that backs them.
    weights) landing in `gpus/t4/` — Turing has no hardware FP8 and silently
    degrades to emulation. Severity: high.
 
-3. **The public model id is pinned.** Every GPU profile (and the mock) must
-   serve `--served-model-name=gpu-inference`. Clients — the chat UI and
+3. **The public model id is pinned.** `scripts/lint.sh` already fails when a
+   profile lacks the literal `--served-model-name=gpu-inference` — don't
+   re-report bare absence. Your judgment layer: flag it being pinned but
+   *ineffective* — set on the wrong container, overridden by a later arg or
+   env var, or a client that stops using the public id. Every GPU profile
+   (and the mock) must actually serve `gpu-inference`. Clients — the chat UI and
    `scripts/contract.py` — depend on that id on every pool. Flag a profile
    that drops or renames it, or a new profile that forgets it. Severity:
    critical (it breaks every client on that pool).

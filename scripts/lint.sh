@@ -20,19 +20,44 @@ else
 fi
 
 # --- kustomize (via kubectl; no cluster needed) ---
+OVERLAYS=(
+  platform/serving/overlays/mock
+  platform/serving/gpus/t4
+  platform/serving/gpus/l4
+  platform/serving/gpus/h100
+  platform/chat
+)
 log "kustomize build"
-for overlay in \
-  platform/serving/overlays/mock \
-  platform/serving/gpus/t4 \
-  platform/serving/gpus/l4 \
-  platform/serving/gpus/h100 \
-  platform/chat; do
+for overlay in "${OVERLAYS[@]}"; do
   if kubectl kustomize "${ROOT}/${overlay}" >/dev/null; then
     ok "${overlay}"
   else
     warn "kustomize build failed: ${overlay}"; rc=1
   fi
 done
+
+# --- kubeconform (manifest schema validation; CRDs skipped) ---
+if command -v kubeconform >/dev/null 2>&1; then
+  log "kubeconform"
+  for overlay in "${OVERLAYS[@]}"; do
+    if kubectl kustomize "${ROOT}/${overlay}" 2>/dev/null \
+        | kubeconform -strict -ignore-missing-schemas -summary=false -; then
+      ok "${overlay}"
+    else
+      warn "kubeconform failed: ${overlay}"; rc=1
+    fi
+  done
+else
+  warn "kubeconform not installed — skipping manifest schema validation"
+fi
+
+# --- actionlint (GitHub Actions workflows) ---
+if command -v actionlint >/dev/null 2>&1; then
+  log "actionlint"
+  if actionlint; then ok "workflows"; else warn "actionlint found issues"; rc=1; fi
+else
+  warn "actionlint not installed — skipping workflow lint"
+fi
 
 # --- terraform ---
 if command -v terraform >/dev/null 2>&1; then
@@ -44,5 +69,37 @@ if command -v terraform >/dev/null 2>&1; then
 else
   warn "terraform not installed — skipping HCL checks"
 fi
+
+# --- repo invariants (the mechanical subset of the sentinel skills) ---------
+# Deterministic checks need no LLM and no trust ladder: they block from day
+# one. Sentinel keeps the judgment residue (seam leakage, blast radius);
+# these are the rules a grep can enforce (ADR-0002/0004/0006).
+log "repo invariants"
+
+# Every pool must ship the lifecycle triple — a pool without orphans.sh
+# cannot prove teardown (ADR-0006).
+for pool in "${ROOT}"/infra/pools/*/; do
+  for f in up.sh down.sh orphans.sh; do
+    if [[ ! -f "${pool}${f}" ]]; then
+      warn "pool $(basename "${pool}") missing ${f} — cannot prove teardown"; rc=1
+    fi
+  done
+done
+ok "pools ship up.sh/down.sh/orphans.sh"
+
+# Every GPU profile must pin the public model id (ADR-0002).
+for prof in "${ROOT}"/platform/serving/gpus/*/; do
+  if ! grep -rq -- "--served-model-name=gpu-inference" "${prof}"; then
+    warn "profile $(basename "${prof}") does not pin --served-model-name=gpu-inference"; rc=1
+  fi
+done
+ok "profiles pin served-model-name=gpu-inference"
+
+# fp8 must never land in the t4 profile — Turing silently emulates it
+# (ADR-0004). Matches actual vLLM args, not prose/comments about fp8.
+if grep -rEq -- '^\s*-\s*--(quantization|kv-cache-dtype)=fp8' "${ROOT}/platform/serving/gpus/t4/"; then
+  warn "fp8 arg in the t4 profile (Turing has no hardware FP8)"; rc=1
+fi
+ok "no fp8 args in t4"
 
 [[ $rc -eq 0 ]] && ok "lint passed" || die "lint found issues"

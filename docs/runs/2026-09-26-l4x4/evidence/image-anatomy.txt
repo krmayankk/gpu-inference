@@ -1,0 +1,27 @@
+# anatomy of vllm/vllm-openai:v0.24.0 (local docker pull, linux/amd64)
+# captured: 2026-09-27T07:21:17Z
+
+total uncompressed: 20.4 GB
+
+site-packages total: 13G
+
+largest packages:
+  3.02 GB  nvidia/
+  1.90 GB  flashinfer_jit_cache/
+  1.76 GB  flashinfer_cubin/
+  1.10 GB  torch/
+  0.71 GB  mooncake/
+  0.62 GB  triton/
+  0.60 GB  vllm/
+  0.26 GB  tokenspeed_triton/
+  0.19 GB  nvidia_cutlass_dsl/
+  0.18 GB  tilelang/
+  0.17 GB  bitsandbytes/
+  0.16 GB  llvmlite/
+
+0	/usr/local/cuda-13
+2.6G	/usr/local/cuda-13.0
+
+ray present? NO
+curl present? /usr/bin/curl
+wget present? NO

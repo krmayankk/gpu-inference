@@ -1,0 +1,13 @@
+# namespaces
+# captured: 2026-09-27T07:14:11Z
+# $ k get namespaces
+
+NAME              STATUS   AGE
+default           Active   101m
+gpu-operator      Active   81m
+inference         Active   80m
+kube-node-lease   Active   101m
+kube-public       Active   101m
+kube-system       Active   101m
+kuberay           Active   81m
+observability     Active   83m

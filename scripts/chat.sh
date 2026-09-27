@@ -8,4 +8,5 @@ k cluster-info >/dev/null 2>&1 || die "no running cluster — run 'make up' firs
 
 banner "chat UI"
 dim "open http://localhost:${PORT}  (Ctrl-C to stop the forward; platform stays up)"
-exec k -n "${NAMESPACE}" port-forward svc/chat "${PORT}:80"
+# exec needs a program, not the k() function — call kubectl directly.
+exec kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" port-forward svc/chat "${PORT}:80"

@@ -1,0 +1,10 @@
+# single-request decode benchmark (first boot, before the probe fix)
+# captured: 2026-09-27T06:22Z (session transcript; one streaming request, max_tokens=300)
+# prompt: "Write a Python function that parses an nginx access log line into a dict,
+#          with a short docstring and one example."
+
+time to first token : 0.43 s
+decode              : 296 chunks in 36.7 s  =  8.1 tok/s
+
+# for comparison: Phase 1, Qwen2.5-Coder-7B fp8 on 1x L4 = 28.8 tok/s (docs/phases.md)
+# concurrent coding tasks (evidence/codetest/*-stats.json): 7.4 tok/s per request with 2-3 in flight

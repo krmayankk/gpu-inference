@@ -69,7 +69,7 @@ nginx. Don't add Go for its own sake before those.
 - **File the 48-vCPU G-quota increase in us-east-1** (L-DB2E81BA; needs MFA
   session — human step): unlocks g6.12xlarge for the single-node TP=4 vs
   multi-node PP=4 comparison the phase plan calls for.
-- First `make cache-weights` after l4x4 boot: pushes the ~33GB Qwen3-32B-FP8
+- First `make cache-weights` after l4x4 boot: pushes the ~31GB Qwen3.8-27B-FP8
   cache so subsequent 4-node boots prefetch from S3 (NAT-free) instead of
   4× HF downloads.
 

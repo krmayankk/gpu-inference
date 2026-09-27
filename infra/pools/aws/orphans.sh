@@ -97,4 +97,11 @@ query "NAT gateways" ec2 describe-nat-gateways \
 query "load balancers (elbv2)" elbv2 describe-load-balancers \
   --query 'length(LoadBalancers)'
 
+# Classic ELBs are what a k8s Service type=LoadBalancer gets by default on
+# EKS, created by the cloud controller outside Terraform and never tagged
+# Project=. Nothing provisions one today; counted region-wide so the proof
+# holds when a layer adds one.
+query "load balancers (classic elb)" elb describe-load-balancers \
+  --query 'length(LoadBalancerDescriptions)'
+
 exit "${found}"

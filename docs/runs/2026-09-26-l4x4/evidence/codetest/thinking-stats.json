@@ -1,0 +1,12 @@
+{
+ "variant": "thinking",
+ "seconds": 814.2,
+ "prompt_tokens": 227,
+ "completion_tokens": 6000,
+ "tok_per_s": 7.4,
+ "reasoning_chars": 7623,
+ "finish_reason": "length",
+ "files": [
+  "logstats.py"
+ ]
+}

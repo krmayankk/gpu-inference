@@ -3,9 +3,23 @@
 # Serving contract (ADR-0002/0004, enforced by sentinel):
 #   - --pipeline-parallel-size=4 is backed by gpu_profiles.l4x4.node_count=4
 #     in infra/pools/aws/ and by nvidia.com/gpu: "1" on each of the 4 pods.
-#   - Model: Qwen3-32B-FP8 — the official pre-quantized fp8 checkpoint
-#     (~33GB vs ~65GB bf16: halves the cold-start download and skips online
-#     quantization). fp8 is hardware-accelerated on Ada (never in gpus/t4/).
+#   - Model: Qwen3.8-27B-FP8 — the official pre-quantized fp8 checkpoint
+#     (30.9GB: too big for one 24GB L4, ~7.7GB/stage at PP=4). fp8 is
+#     hardware-accelerated on Ada (never in gpus/t4/). Hybrid attention
+#     (Gated DeltaNet + full attention every 4th layer) — 64 layers split
+#     16/stage keeps the 3:1 pattern whole on every stage.
+#   - --language-model-only: skip the vision encoder; the seam is text chat.
+#   - 64K context + tool calling (qwen3_coder parser): what coding agents
+#     (IDE/CLI) need — they send 20-40K-token prompts and act via tool calls.
+#     Cheap on this model: only 16 of 64 layers keep a per-token KV cache
+#     (~16KB/token per PP stage in bf16, so 64K ≈ 1GB per GPU).
+#   - Thinking is OFF by default: the seam promises every client a direct
+#     answer in `content` within its max_tokens (the contract test asks for
+#     40), and the template's own default (xhigh) runs for minutes at PP=4
+#     decode speed. A client opts in per request with chat_template_kwargs
+#     {"enable_thinking": true, "reasoning_effort": "low|medium|xhigh"};
+#     --reasoning-parser=qwen3 then routes the thinking to
+#     `reasoning_content` so `content` stays the answer.
 #   - --served-model-name=gpu-inference pins the public id on this profile
 #     like every other.
 #
@@ -17,7 +31,8 @@
 # Ray is NOT in the vllm/vllm-openai image (an optional vLLM dependency since
 # the v0.2x line), so every pod installs the version vLLM v0.24.0 tests against
 # before `ray start`; rayVersion below must match it. Head and workers both
-# carry the overwrite annotation: workers install Ray, then exec KubeRay's own
+# carry the overwrite annotation: workers install Ray, wait for the head's GCS
+# (KubeRay's injected wait is disabled — it needs Ray in the image), then exec KubeRay's own
 # generated start command ($KUBERAY_GEN_RAY_START_CMD). Backlog: bake this into
 # a derived image so cold start doesn't depend on PyPI.
 #
@@ -76,12 +91,17 @@ spec:
               - |
                 uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
                 ray start --head --num-gpus=1 --dashboard-host=0.0.0.0 --disable-usage-stats && \
-                exec vllm serve Qwen/Qwen3-32B-FP8 \
+                exec vllm serve Qwen/Qwen3.8-27B-FP8 \
                   --served-model-name=gpu-inference \
                   --pipeline-parallel-size=4 \
                   --tensor-parallel-size=1 \
                   --distributed-executor-backend=ray \
-                  --max-model-len=8192 \
+                  --max-model-len=65536 \
+                  --enable-auto-tool-choice \
+                  --tool-call-parser=qwen3_coder \
+                  --language-model-only \
+                  --reasoning-parser=qwen3 \
+                  --default-chat-template-kwargs='{"enable_thinking":false}' \
                   --gpu-memory-utilization=0.90 \
                   --port=8000
             env:
@@ -109,6 +129,29 @@ spec:
                 path: /health
                 port: http
               periodSeconds: 10
+            # Our own liveness, as an HTTP probe: KubeRay's injected probes are
+            # disabled (ENABLE_PROBES_INJECTION=false in up.sh) because they
+            # exec `wget`, which this image lacks — observed live, the injected
+            # liveness killed a healthy, serving head after ~10 min.
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+              failureThreshold: 6
+            volumeMounts:
+              - name: hf-cache
+                mountPath: /cache
+          # Holds the weights volume open for `make cache-weights` (push the
+          # downloaded HF cache to S3), same pattern as the single-pod
+          # profiles. Must stay after ray-head: KubeRay treats container 0 as Ray.
+          - name: cache-sync
+            image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+            command: ["/bin/bash", "-c", "trap 'exit 0' TERM; sleep infinity & wait"]
+            envFrom:
+              - configMapRef:
+                  name: pool-context
+                  optional: true
             volumeMounts:
               - name: hf-cache
                 mountPath: /cache
@@ -160,6 +203,9 @@ spec:
               args:
                 - |
                   uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
+                  until ray health-check --address inference-head-svc:6379 >/dev/null 2>&1; do
+                    echo "waiting for Ray GCS on inference-head-svc:6379"; sleep 5
+                  done && \
                   exec bash -lc "$KUBERAY_GEN_RAY_START_CMD"
               env:
                 - name: HF_HOME
@@ -167,6 +213,22 @@ spec:
               resources:
                 limits:
                   nvidia.com/gpu: "1"
+              # Same check KubeRay would inject, as HTTP probes instead of an
+              # exec of `wget` (absent from this image).
+              readinessProbe:
+                httpGet:
+                  path: /api/local_raylet_healthz
+                  port: 52365
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                failureThreshold: 10
+              livenessProbe:
+                httpGet:
+                  path: /api/local_raylet_healthz
+                  port: 52365
+                initialDelaySeconds: 30
+                periodSeconds: 5
+                failureThreshold: 120
               volumeMounts:
                 - name: hf-cache
                   mountPath: /cache

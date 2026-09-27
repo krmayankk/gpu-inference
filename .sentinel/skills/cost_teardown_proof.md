@@ -13,9 +13,13 @@ teardown if it ships the proof script.
    Severity: high. Resources that cannot be tagged at all deserve a finding
    too: how will the sweep find them?
 
-2. **A pool without `orphans.sh` cannot prove teardown.** A new directory
-   under `infra/pools/<pool>/` must provide `up.sh`, `down.sh`, and
-   `orphans.sh`. Missing any of the three: critical — block it.
+2. **A pool without `orphans.sh` cannot prove teardown.** `scripts/lint.sh`
+   already fails deterministically when a pool lacks `up.sh`/`down.sh`/
+   `orphans.sh` — don't re-report bare absence. Your judgment layer: flag an
+   `orphans.sh` that exists but couldn't work — sweeps a different region or
+   tag than the pool creates, swallows API errors (a blind sweep reporting
+   clean), or omits resource types the pool's up.sh creates. Severity:
+   critical.
 
 3. **Nothing always-on.** No resource may survive `make down` except git,
    object storage (weights cache, dumps), and the bootstrap Terraform state

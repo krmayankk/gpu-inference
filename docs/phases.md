@@ -69,7 +69,7 @@ spin-up. Security note for the record: weights-bucket access rides the node role
 | | Phase 1 (built, verified live) | Phase 2 (this scaffold) |
 |---|---|---|
 | Capacity | 1 node, **1 GPU** (g6.2xlarge) | **4 nodes, 4 GPUs** (4× g6.2xlarge — exactly the 32-vCPU quota) |
-| Model | Qwen2.5-Coder-**7B** fp8 (~8GB — fits one L4) | Qwen**3-32B**-FP8 (~32GB — **cannot fit any single L4**; distribution is load-bearing, not a demo trick) |
+| Model | Qwen2.5-Coder-**7B** fp8 (~8GB — fits one L4) | Qwen**3.8-27B**-FP8 (30.9GB — **cannot fit any single L4**; distribution is load-bearing, not a demo trick) |
 | Workload shape | one vLLM pod (Deployment) | vLLM as **4 pipeline stages**, one per GPU, coordinated by Ray on a KubeRay RayCluster |
 | Scheduling problem | trivial (pod → the GPU node) | placement: 4 pods across 4 tainted nodes; stages joined over the pod network |
 | Capacity declaration | hand-set (`gpu_desired_size=1`) | **travels with the profile** (`gpu_profiles.<key>.node_count`) — parallelism can't be declared without GPUs |

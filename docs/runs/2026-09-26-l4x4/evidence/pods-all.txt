@@ -1,0 +1,64 @@
+# every pod, every namespace, with node placement
+# captured: 2026-09-27T07:14:17Z
+# $ k get pods -A -o wide
+
+NAMESPACE       NAME                                                          READY   STATUS      RESTARTS      AGE   IP           NODE                         NOMINATED NODE   READINESS GATES
+gpu-operator    gpu-feature-discovery-7zvgc                                   1/1     Running     0             81m   10.0.2.185   ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    gpu-feature-discovery-khmt6                                   1/1     Running     0             81m   10.0.2.230   ip-10-0-2-247.ec2.internal   <none>           <none>
+gpu-operator    gpu-feature-discovery-pdrbm                                   1/1     Running     0             81m   10.0.2.180   ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    gpu-feature-discovery-tzk7z                                   1/1     Running     0             81m   10.0.2.228   ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    gpu-operator-7c57f9fc5b-6p2zh                                 1/1     Running     0             82m   10.0.2.244   ip-10-0-2-128.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-gc-5c77b776c8-qhvt2       1/1     Running     0             82m   10.0.1.127   ip-10-0-1-202.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-master-6f5487b6dd-pslfj   1/1     Running     0             82m   10.0.1.206   ip-10-0-1-202.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-2n2sf              1/1     Running     0             82m   10.0.2.120   ip-10-0-2-128.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-4mtgz              1/1     Running     0             82m   10.0.1.115   ip-10-0-1-202.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-9bj5r              1/1     Running     0             82m   10.0.2.36    ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-lwd7q              1/1     Running     0             82m   10.0.2.162   ip-10-0-2-247.ec2.internal   <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-mm44s              1/1     Running     0             82m   10.0.2.106   ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    gpu-operator-node-feature-discovery-worker-xfqr7              1/1     Running     0             82m   10.0.2.28    ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    nvidia-cuda-validator-8rfrl                                   0/1     Completed   0             81m   10.0.2.27    ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    nvidia-cuda-validator-rzptx                                   0/1     Completed   0             81m   10.0.2.52    ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    nvidia-cuda-validator-vnb2s                                   0/1     Completed   0             81m   10.0.2.90    ip-10-0-2-247.ec2.internal   <none>           <none>
+gpu-operator    nvidia-cuda-validator-xgb9z                                   0/1     Completed   0             81m   10.0.2.67    ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    nvidia-dcgm-exporter-72xds                                    1/1     Running     0             81m   10.0.2.203   ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    nvidia-dcgm-exporter-897qh                                    1/1     Running     0             81m   10.0.2.15    ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    nvidia-dcgm-exporter-jj92n                                    1/1     Running     0             81m   10.0.2.110   ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    nvidia-dcgm-exporter-lb7lj                                    1/1     Running     0             81m   10.0.2.175   ip-10-0-2-247.ec2.internal   <none>           <none>
+gpu-operator    nvidia-device-plugin-daemonset-9n6wj                          1/1     Running     0             81m   10.0.2.124   ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    nvidia-device-plugin-daemonset-j6j2t                          1/1     Running     0             81m   10.0.2.178   ip-10-0-2-247.ec2.internal   <none>           <none>
+gpu-operator    nvidia-device-plugin-daemonset-nwj97                          1/1     Running     0             81m   10.0.2.252   ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    nvidia-device-plugin-daemonset-ps2dt                          1/1     Running     0             81m   10.0.2.34    ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    nvidia-operator-validator-8wkgn                               1/1     Running     0             81m   10.0.2.145   ip-10-0-2-119.ec2.internal   <none>           <none>
+gpu-operator    nvidia-operator-validator-8zvcg                               1/1     Running     0             81m   10.0.2.161   ip-10-0-2-72.ec2.internal    <none>           <none>
+gpu-operator    nvidia-operator-validator-hkcsr                               1/1     Running     0             81m   10.0.2.82    ip-10-0-2-10.ec2.internal    <none>           <none>
+gpu-operator    nvidia-operator-validator-jwmwz                               1/1     Running     0             81m   10.0.2.66    ip-10-0-2-247.ec2.internal   <none>           <none>
+inference       chat-c9dc6875c-l9fp5                                          1/1     Running     4 (80m ago)   80m   10.0.2.177   ip-10-0-2-128.ec2.internal   <none>           <none>
+inference       inference-gpu-workers-worker-bqml2                            1/1     Running     0             44m   10.0.2.99    ip-10-0-2-72.ec2.internal    <none>           <none>
+inference       inference-gpu-workers-worker-fmgnf                            1/1     Running     0             44m   10.0.2.44    ip-10-0-2-10.ec2.internal    <none>           <none>
+inference       inference-gpu-workers-worker-g6pg9                            1/1     Running     0             44m   10.0.2.249   ip-10-0-2-119.ec2.internal   <none>           <none>
+inference       inference-head-t4zvd                                          2/2     Running     0             44m   10.0.2.90    ip-10-0-2-247.ec2.internal   <none>           <none>
+kube-system     aws-node-bpkvs                                                2/2     Running     0             86m   10.0.2.119   ip-10-0-2-119.ec2.internal   <none>           <none>
+kube-system     aws-node-bvfkj                                                2/2     Running     0             84m   10.0.2.72    ip-10-0-2-72.ec2.internal    <none>           <none>
+kube-system     aws-node-fjrzs                                                2/2     Running     0             86m   10.0.2.247   ip-10-0-2-247.ec2.internal   <none>           <none>
+kube-system     aws-node-jh74v                                                2/2     Running     0             96m   10.0.1.202   ip-10-0-1-202.ec2.internal   <none>           <none>
+kube-system     aws-node-l49qw                                                2/2     Running     0             86m   10.0.2.10    ip-10-0-2-10.ec2.internal    <none>           <none>
+kube-system     aws-node-plp2j                                                2/2     Running     0             96m   10.0.2.128   ip-10-0-2-128.ec2.internal   <none>           <none>
+kube-system     coredns-7dc57476c7-9kmwt                                      1/1     Running     0             99m   10.0.1.81    ip-10-0-1-202.ec2.internal   <none>           <none>
+kube-system     coredns-7dc57476c7-qtnbz                                      1/1     Running     0             99m   10.0.1.209   ip-10-0-1-202.ec2.internal   <none>           <none>
+kube-system     kube-proxy-c8w4k                                              1/1     Running     0             96m   10.0.1.202   ip-10-0-1-202.ec2.internal   <none>           <none>
+kube-system     kube-proxy-knmlh                                              1/1     Running     0             86m   10.0.2.119   ip-10-0-2-119.ec2.internal   <none>           <none>
+kube-system     kube-proxy-prmzc                                              1/1     Running     0             84m   10.0.2.72    ip-10-0-2-72.ec2.internal    <none>           <none>
+kube-system     kube-proxy-qsljx                                              1/1     Running     0             86m   10.0.2.247   ip-10-0-2-247.ec2.internal   <none>           <none>
+kube-system     kube-proxy-s6k6d                                              1/1     Running     0             96m   10.0.2.128   ip-10-0-2-128.ec2.internal   <none>           <none>
+kube-system     kube-proxy-tf2l8                                              1/1     Running     0             86m   10.0.2.10    ip-10-0-2-10.ec2.internal    <none>           <none>
+kuberay         kuberay-operator-5954d66cf4-v68lm                             1/1     Running     0             45m   10.0.1.122   ip-10-0-1-202.ec2.internal   <none>           <none>
+observability   obs-grafana-66cbf7646d-2r694                                  3/3     Running     0             83m   10.0.1.219   ip-10-0-1-202.ec2.internal   <none>           <none>
+observability   obs-kube-prometheus-stack-operator-5748f5fc5b-dktfb           1/1     Running     0             83m   10.0.2.129   ip-10-0-2-128.ec2.internal   <none>           <none>
+observability   obs-kube-state-metrics-d58c4d8-8d9wl                          1/1     Running     0             83m   10.0.2.193   ip-10-0-2-128.ec2.internal   <none>           <none>
+observability   obs-prometheus-node-exporter-64ftf                            1/1     Running     0             83m   10.0.2.72    ip-10-0-2-72.ec2.internal    <none>           <none>
+observability   obs-prometheus-node-exporter-65gqd                            1/1     Running     0             83m   10.0.2.10    ip-10-0-2-10.ec2.internal    <none>           <none>
+observability   obs-prometheus-node-exporter-bfqj5                            1/1     Running     0             83m   10.0.2.128   ip-10-0-2-128.ec2.internal   <none>           <none>
+observability   obs-prometheus-node-exporter-cm9kc                            1/1     Running     0             83m   10.0.2.247   ip-10-0-2-247.ec2.internal   <none>           <none>
+observability   obs-prometheus-node-exporter-x9zzr                            1/1     Running     0             83m   10.0.1.202   ip-10-0-1-202.ec2.internal   <none>           <none>
+observability   obs-prometheus-node-exporter-zwcpv                            1/1     Running     0             83m   10.0.2.119   ip-10-0-2-119.ec2.internal   <none>           <none>
+observability   prometheus-obs-kube-prometheus-stack-prometheus-0             2/2     Running     0             83m   10.0.2.116   ip-10-0-2-128.ec2.internal   <none>           <none>

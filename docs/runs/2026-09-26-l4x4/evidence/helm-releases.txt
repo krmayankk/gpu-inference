@@ -1,0 +1,8 @@
+# installed components (Helm releases)
+# captured: 2026-09-27T07:14:14Z
+# $ helm --kubeconfig ./.kubeconfig list -A
+
+NAME            	NAMESPACE    	REVISION	UPDATED                                	STATUS  	CHART                       	APP VERSION
+gpu-operator    	gpu-operator 	1       	2026-09-26 22:52:12.627825002 -0700 PDT	deployed	gpu-operator-v26.7.1        	v26.7.1    
+kuberay-operator	kuberay      	3       	2026-09-26 23:28:53.977485971 -0700 PDT	deployed	kuberay-operator-1.7.1      	           
+obs             	observability	1       	2026-09-26 22:50:44.307041603 -0700 PDT	deployed	kube-prometheus-stack-91.7.0	v0.94.1    

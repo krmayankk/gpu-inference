@@ -7,7 +7,7 @@
 # Read-only: every command is a get/describe/exec-read. Raw output, lightly
 # headed, so a reader can trust it was captured, not written. Capture while the
 # cluster is up — Kubernetes events expire after ~1h and nothing here can be
-# recovered after `make down`. The AWS account id is redacted.
+# recovered after `make down`. The AWS account id and local paths are redacted.
 source "$(dirname "$0")/lib.sh"
 require kubectl
 
@@ -25,7 +25,8 @@ cap() {
     echo "# \$ $*"
     echo
     "$@" 2>&1 || echo "(exit $?)"
-  } | if [[ -n "${ACCOUNT_ID}" ]]; then sed "s/${ACCOUNT_ID}/<account-id>/g"; else cat; fi \
+  } | sed "s#${ROOT}#.#g" \
+    | if [[ -n "${ACCOUNT_ID}" ]]; then sed "s/${ACCOUNT_ID}/<account-id>/g"; else cat; fi \
     > "${OUT}/${file}"
   ok "${file}"
 }

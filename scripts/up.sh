@@ -62,8 +62,10 @@ if [[ "${GPU_CAPABLE}" == "1" ]]; then
   helm --kubeconfig "${KUBECONFIG_PATH}" repo add kuberay \
     https://ray-project.github.io/kuberay-helm/ >/dev/null 2>&1 || true
   helm --kubeconfig "${KUBECONFIG_PATH}" repo update >/dev/null
+  # Pinned: the operator owns the RayCluster CRD schema, so a floating chart
+  # would let the controller change under an unchanged raycluster.yaml.
   helm --kubeconfig "${KUBECONFIG_PATH}" upgrade --install kuberay-operator \
-    kuberay/kuberay-operator \
+    kuberay/kuberay-operator --version 1.7.1 \
     --namespace kuberay --create-namespace \
     --wait --timeout 5m
 fi

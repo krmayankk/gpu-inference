@@ -14,6 +14,13 @@
 # vLLM joins the local Ray cluster and places the 4 PP stages on the 4 GPUs.
 # Workers keep the operator-generated `ray start` (join via the head svc).
 #
+# Ray is NOT in the vllm/vllm-openai image (an optional vLLM dependency since
+# the v0.2x line), so every pod installs the version vLLM v0.24.0 tests against
+# before `ray start`; rayVersion below must match it. Head and workers both
+# carry the overwrite annotation: workers install Ray, then exec KubeRay's own
+# generated start command ($KUBERAY_GEN_RAY_START_CMD). Backlog: bake this into
+# a derived image so cold start doesn't depend on PyPI.
+#
 # Weights (ADR-0005): same S3 pull-through prefetch as the vllm overlay, per
 # pod — each PP stage reads its own layers from the local HF cache.
 apiVersion: ray.io/v1
@@ -23,7 +30,7 @@ metadata:
   labels:
     app.kubernetes.io/part-of: gpu-inference
 spec:
-  rayVersion: "2.44.0"
+  rayVersion: "2.48.0" # == the ray[cgraph,default] pin installed in every pod
   headGroupSpec:
     rayStartParams:
       num-gpus: "1"
@@ -61,12 +68,13 @@ spec:
                 mountPath: /cache
         containers:
           - name: ray-head
-            image: vllm/vllm-openai:v0.24.0 # ships Ray; one image for head+workers
+            image: vllm/vllm-openai:v0.24.0 # one image for head+workers; Ray installed at start
             # KubeRay honors this command because of the overwrite annotation:
             # start the head, then run the API server on top of the Ray cluster.
             command: ["/bin/bash", "-lc"]
             args:
               - |
+                uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
                 ray start --head --num-gpus=1 --dashboard-host=0.0.0.0 --disable-usage-stats && \
                 exec vllm serve Qwen/Qwen3-32B-FP8 \
                   --served-model-name=gpu-inference \
@@ -115,6 +123,9 @@ spec:
       rayStartParams:
         num-gpus: "1"
       template:
+        metadata:
+          annotations:
+            ray.io/overwrite-container-cmd: "true"
         spec:
           nodeSelector:
             nvidia.com/gpu.present: "true"
@@ -145,6 +156,11 @@ spec:
           containers:
             - name: ray-worker
               image: vllm/vllm-openai:v0.24.0
+              command: ["/bin/bash", "-lc"]
+              args:
+                - |
+                  uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
+                  exec bash -lc "$KUBERAY_GEN_RAY_START_CMD"
               env:
                 - name: HF_HOME
                   value: /cache

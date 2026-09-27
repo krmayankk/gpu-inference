@@ -8,7 +8,7 @@ while a phase is running; every phase returns the account to zero residual cost.
 |---|---|---|
 | 0 — Scaffolding + $0 chat demo | ~$0 (local kind) | **built** |
 | 1 — Single-GPU modern inference (L4, FP8) | ~$1.2/hr while up | **built** (verified live 2026-07-05) |
-| 2 — Distributed inference | a few $/hr | **scaffold built** (ADR-0011); live test pending |
+| 2 — Distributed inference | a few $/hr | **live run 2026-09-26** (ADR-0011) — [tutorial](tutorials/phase-2-l4x4-first-live-run.md) |
 | 3 — GitOps + chat UI | as ph.2 | not started |
 | 4 — Autoscaling + cost autonomy | scales to 0 idle | not started |
 | 5 — Multi-cloud H100/H200 burst | burst only | not started |

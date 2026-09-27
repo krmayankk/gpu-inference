@@ -66,6 +66,9 @@ if [[ "${GPU_CAPABLE}" == "1" ]]; then
   # `ray health-check` in the worker's own image, and vllm/vllm-openai has no
   # Ray — observed live, it looped on "ray: command not found" forever. The
   # l4x4 workers do the same wait themselves after installing Ray.
+  # Probe injection OFF for the same reason: KubeRay's injected probes exec
+  # `wget`, absent from the image, so the injected liveness killed a healthy
+  # head. The l4x4 profile declares its own HTTP probes.
   # Pinned: the operator owns the RayCluster CRD schema, so a floating chart
   # would let the controller change under an unchanged raycluster.yaml.
   helm --kubeconfig "${KUBECONFIG_PATH}" upgrade --install kuberay-operator \
@@ -73,6 +76,8 @@ if [[ "${GPU_CAPABLE}" == "1" ]]; then
     --namespace kuberay --create-namespace \
     --set 'env[0].name=ENABLE_INIT_CONTAINER_INJECTION' \
     --set-string 'env[0].value=false' \
+    --set 'env[1].name=ENABLE_PROBES_INJECTION' \
+    --set-string 'env[1].value=false' \
     --wait --timeout 5m
 fi
 

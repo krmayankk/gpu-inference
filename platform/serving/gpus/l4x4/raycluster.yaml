@@ -129,6 +129,29 @@ spec:
                 path: /health
                 port: http
               periodSeconds: 10
+            # Our own liveness, as an HTTP probe: KubeRay's injected probes are
+            # disabled (ENABLE_PROBES_INJECTION=false in up.sh) because they
+            # exec `wget`, which this image lacks — observed live, the injected
+            # liveness killed a healthy, serving head after ~10 min.
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+              failureThreshold: 6
+            volumeMounts:
+              - name: hf-cache
+                mountPath: /cache
+          # Holds the weights volume open for `make cache-weights` (push the
+          # downloaded HF cache to S3), same pattern as the single-pod
+          # profiles. Must stay after ray-head: KubeRay treats container 0 as Ray.
+          - name: cache-sync
+            image: public.ecr.aws/aws-cli/aws-cli:2.22.35
+            command: ["/bin/bash", "-c", "trap 'exit 0' TERM; sleep infinity & wait"]
+            envFrom:
+              - configMapRef:
+                  name: pool-context
+                  optional: true
             volumeMounts:
               - name: hf-cache
                 mountPath: /cache
@@ -190,6 +213,22 @@ spec:
               resources:
                 limits:
                   nvidia.com/gpu: "1"
+              # Same check KubeRay would inject, as HTTP probes instead of an
+              # exec of `wget` (absent from this image).
+              readinessProbe:
+                httpGet:
+                  path: /api/local_raylet_healthz
+                  port: 52365
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                failureThreshold: 10
+              livenessProbe:
+                httpGet:
+                  path: /api/local_raylet_healthz
+                  port: 52365
+                initialDelaySeconds: 30
+                periodSeconds: 5
+                failureThreshold: 120
               volumeMounts:
                 - name: hf-cache
                   mountPath: /cache

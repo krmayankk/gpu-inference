@@ -58,4 +58,31 @@ Actual from Cost Explorer: *to be added once billing settles (~24h).*
 
 ## Teardown proof
 
-*Filled from `make down` output.*
+`make down` (2026-09-27 ~01:05 PDT):
+
+```
+Destroy complete! Resources: 67 destroyed.
+ ok  aws pool destroyed (verify-zero-orphans runs next)
+─── verify zero orphans — pool=aws ───
+==> tag sweep: Project=gpu-inference AND Ephemeral=true (liveness-resolved)
+ ok  zero residual resources for pool 'aws'
+─── down complete — zero residual resources ───
+```
+
+Independent account-wide check in us-east-1 afterwards (not tag-filtered):
+
+```
+EKS clusters       : 0
+EC2 instances live : 0
+  of which GPU (g*) : 0
+Auto Scaling Groups: 0
+Project VPCs       : 0
+NAT gateways live  : 0
+Security groups (non-default VPCs): 0
+Load balancers     : 0 (v2), 0 (classic)
+Unattached EBS     : 0
+Elastic IPs        : 0
+```
+
+Persistent by design (ADR-0005/0007): the Terraform state backend and the weights
+cache bucket (30.9GB after the de-duplication fix, ~$0.70/month).

@@ -108,6 +108,13 @@ fi
 log "chat UI"
 k apply -k "${ROOT}/platform/chat" >/dev/null
 
+# vLLM's own metrics (tokens/s, TTFT, queue, KV cache) — only with the
+# observability stack (the CRD comes with it) and a real model behind the seam.
+if [[ "${OBS}" == "1" && "${SERVING}" == "vllm" ]]; then
+  log "vLLM ServiceMonitor"
+  k apply -f "${ROOT}/platform/observability/vllm-servicemonitor.yaml" >/dev/null
+fi
+
 log "waiting for rollout"
 # vLLM cold start = image pull (~10GB) + weight fetch; give it real time.
 INFER_TIMEOUT="$([[ "${SERVING}" == "vllm" ]] && echo 1800s || echo 240s)"

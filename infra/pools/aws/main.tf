@@ -23,8 +23,30 @@ data "aws_availability_zones" "available" {
 
 data "aws_caller_identity" "current" {}
 
+# Zones that OFFER the profile's GPU type. Offered != has capacity: GPU
+# capacity per zone comes and goes (observed live 2026-09-26: g6.2xlarge
+# InsufficientInstanceCapacity in us-east-1a AND 1b for ~10 min while c/d/f
+# had it). The GPU group spans every offering zone so the ASG can route
+# around a dry one.
+data "aws_ec2_instance_type_offerings" "gpu" {
+  location_type = "availability-zone"
+  filter {
+    name   = "instance-type"
+    values = [local.gpu_instance_type]
+  }
+}
+
 locals {
-  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  # The first two zones host the control plane and system nodes (unchanged —
+  # moving control-plane subnets can force a cluster replace). Every other
+  # zone that offers the GPU type is appended, so existing subnets keep their
+  # index and CIDR and adding zones is purely additive.
+  base_azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  gpu_azs = sort([
+    for az in data.aws_ec2_instance_type_offerings.gpu.locations : az
+    if contains(data.aws_availability_zones.available.names, az)
+  ])
+  azs = concat(local.base_azs, [for az in local.gpu_azs : az if !contains(local.base_azs, az)])
 
   # The hardware profile map. Adding a GPU = adding a row (+ its kustomization
   # in platform/serving/gpus/<key>/). Nothing else changes. node_count is the
@@ -52,7 +74,7 @@ module "vpc" {
   cidr = "10.0.0.0/16"
 
   azs             = local.azs
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnets = [for i, _ in local.azs : cidrsubnet("10.0.0.0/16", 8, i + 1)] # 10.0.1.0/24, 10.0.2.0/24, ...
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
   enable_nat_gateway = true
@@ -85,8 +107,9 @@ module "eks" {
   # debugging round: kubectl gets 401 with no access entry at all).
   enable_cluster_creator_admin_permissions = true
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id = module.vpc.vpc_id
+  # Control plane + system nodes: the original two subnets, exactly as before.
+  subnet_ids = slice(module.vpc.private_subnets, 0, 2)
 
   # Provider default_tags cover everything TERRAFORM creates, but instances the
   # ASG launches later (and their EBS roots/ENIs) are tagged from the launch
@@ -113,8 +136,16 @@ module "eks" {
     gpu = {
       instance_types = [local.gpu_instance_type]
       ami_type       = "AL2023_x86_64_NVIDIA" # driver + container toolkit in the AMI
-      desired_size   = local.gpu_node_count
-      min_size       = 0 # scale-to-zero ready; TTL schedule uses this
+      # Every private subnet in a zone that offers the GPU type. Trade-off: a
+      # multi-node profile (l4x4) may land its PP stages in different zones —
+      # ~1ms extra per stage hop plus cross-AZ transfer. Accepted for
+      # obtainability; pinning all stages to one zone that HAS capacity is
+      # Karpenter's job (Phase 4), not a static node group's.
+      subnet_ids = [
+        for i, az in local.azs : module.vpc.private_subnets[i] if contains(local.gpu_azs, az)
+      ]
+      desired_size = local.gpu_node_count
+      min_size     = 0 # scale-to-zero ready; TTL schedule uses this
       # max must never be below desired or the apply fails — follow the profile.
       max_size = max(4, local.gpu_node_count)
       # The default 20GiB root cannot hold the vLLM image (~10GB unpacked)

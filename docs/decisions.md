@@ -202,6 +202,11 @@ vLLM Deployment — its `platform/serving/gpus/<profile>/` ships a **KubeRay Ray
 profile has. Phase 2's `l4x4` is the first: Qwen3-32B-FP8, **PP=4 across 4× g6.2xlarge**
 (1 L4 each), head pod serving the OpenAI API.
 
+*Amendment (2026-09-26):* the l4x4 model moved to **Qwen3.8-27B-FP8** (30.9GB, same
+PP=4 shape) before the first live run — a stronger, newer model at the same capacity.
+It serves text-only (`--language-model-only`) with thinking off by default, so the seam's
+"direct answer in `content`" contract holds; clients opt into reasoning per request.
+
 **Why PP across nodes, not TP.** Tensor parallelism all-reduces at every layer — over
 inter-node ENA networking that is the bottleneck; pipeline parallelism ships only stage-
 boundary activations and tolerates ordinary networks. TP belongs inside a box (NVLink/PCIe):

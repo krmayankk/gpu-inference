@@ -3,9 +3,19 @@
 # Serving contract (ADR-0002/0004, enforced by sentinel):
 #   - --pipeline-parallel-size=4 is backed by gpu_profiles.l4x4.node_count=4
 #     in infra/pools/aws/ and by nvidia.com/gpu: "1" on each of the 4 pods.
-#   - Model: Qwen3-32B-FP8 — the official pre-quantized fp8 checkpoint
-#     (~33GB vs ~65GB bf16: halves the cold-start download and skips online
-#     quantization). fp8 is hardware-accelerated on Ada (never in gpus/t4/).
+#   - Model: Qwen3.8-27B-FP8 — the official pre-quantized fp8 checkpoint
+#     (30.9GB: too big for one 24GB L4, ~7.7GB/stage at PP=4). fp8 is
+#     hardware-accelerated on Ada (never in gpus/t4/). Hybrid attention
+#     (Gated DeltaNet + full attention every 4th layer) — 64 layers split
+#     16/stage keeps the 3:1 pattern whole on every stage.
+#   - --language-model-only: skip the vision encoder; the seam is text chat.
+#   - Thinking is OFF by default: the seam promises every client a direct
+#     answer in `content` within its max_tokens (the contract test asks for
+#     40), and the template's own default (xhigh) runs for minutes at PP=4
+#     decode speed. A client opts in per request with chat_template_kwargs
+#     {"enable_thinking": true, "reasoning_effort": "low|medium|xhigh"};
+#     --reasoning-parser=qwen3 then routes the thinking to
+#     `reasoning_content` so `content` stays the answer.
 #   - --served-model-name=gpu-inference pins the public id on this profile
 #     like every other.
 #
@@ -76,12 +86,15 @@ spec:
               - |
                 uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
                 ray start --head --num-gpus=1 --dashboard-host=0.0.0.0 --disable-usage-stats && \
-                exec vllm serve Qwen/Qwen3-32B-FP8 \
+                exec vllm serve Qwen/Qwen3.8-27B-FP8 \
                   --served-model-name=gpu-inference \
                   --pipeline-parallel-size=4 \
                   --tensor-parallel-size=1 \
                   --distributed-executor-backend=ray \
                   --max-model-len=8192 \
+                  --language-model-only \
+                  --reasoning-parser=qwen3 \
+                  --default-chat-template-kwargs='{"enable_thinking":false}' \
                   --gpu-memory-utilization=0.90 \
                   --port=8000
             env:

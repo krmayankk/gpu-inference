@@ -1,10 +1,10 @@
 # Runbook: l4x4 live test — 4 GPUs, one model (Phase 2's first spin-up)
 
-What Phase 1 proved on one GPU, this run proves on four: Qwen3-32B-FP8 split
+What Phase 1 proved on one GPU, this run proves on four: Qwen3.8-27B-FP8 split
 into 4 pipeline stages across 4 nodes, behind the same `inference` Service,
 same chat UI, same contract test. Cost ≈ $4/hr (4× g6.2xlarge + EKS + NAT);
 the TTL dead-man's switch arms at 6h. Cold boot 25–40 min the first time
-(~33GB of weights per node from HF); after `make cache-weights`, subsequent
+(~31GB of weights per node from HF); after `make cache-weights`, subsequent
 boots prefetch from S3 through the gateway endpoint (NAT-free, ~15 min).
 
 ## 0. Pre-flight
@@ -69,7 +69,7 @@ make grafana   # FB_USED, GPU_UTIL, POWER_USAGE per GPU (PLAN §5 metrics)
 
 ## 3. Prove the seam (Phase 2's actual test)
 ```sh
-make chat                       # same UI — now a 32B reasoning model answers
+make chat                       # same UI — now Qwen3.8-27B answers (thinking off by default)
 python3 scripts/contract.py     # the SAME assertions that passed the mock and 1×L4
 ```
 The contract passing unchanged against 4-way-distributed serving IS the
@@ -86,7 +86,7 @@ curl -s localhost:8000/metrics | grep -E 'vllm:generation_tokens_total'
 
 ## 5. Persist, then prove zero
 ```sh
-make cache-weights   # push ~33GB to S3 once — next boot is NAT-free
+make cache-weights   # push ~31GB to S3 once — next boot is NAT-free
 make down            # destroy all 4 nodes + cluster
 make verify          # zero-orphan sweep (tags cover ASG-launched capacity)
 ```

@@ -109,4 +109,22 @@ else
   ok "no fp8 settings in t4"
 fi
 
+# Every rendered serving profile (and chat) must place every object in the
+# `inference` namespace — clients reach `inference:8000` by short name, so an
+# object with no namespace lands in whatever the kubectl context says and the
+# seam silently splits. Rendering succeeding proves nothing about WHERE things
+# go (observed live: l4x4 landed in `default`, chat crash-looped).
+ns_rc=0
+for overlay in "${OVERLAYS[@]}"; do
+  bad="$(kubectl kustomize "${ROOT}/${overlay}" 2>/dev/null | python3 -c '
+import sys, yaml
+for d in yaml.safe_load_all(sys.stdin):
+    if d and d.get("metadata", {}).get("namespace") != "inference":
+        print(d["kind"] + "/" + d["metadata"]["name"])')"
+  if [[ -n "${bad}" ]]; then
+    warn "${overlay}: objects outside namespace inference: ${bad//$'\n'/ }"; ns_rc=1; rc=1
+  fi
+done
+[[ $ns_rc -eq 0 ]] && ok "every profile renders into namespace inference"
+
 [[ $rc -eq 0 ]] && ok "lint passed" || die "lint found issues"

@@ -13,6 +13,11 @@
 # the 48-vCPU quota clears (see docs/backlog.md).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Explicit: this profile does not build on overlays/vllm (which is where the
+# single-pod profiles inherit it), and without it everything lands in the
+# kubectl context's namespace — observed live: RayCluster + `inference` Service
+# in `default`, chat crash-looping on an unresolvable upstream.
+namespace: inference
 resources:
   - raycluster.yaml
   - service.yaml

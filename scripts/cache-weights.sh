@@ -21,6 +21,10 @@ k -n "${NAMESPACE}" exec "${TARGET}" -c cache-sync -- /bin/bash -c '
   set -euo pipefail
   [[ -n "${WEIGHTS_BUCKET:-}" ]] || { echo "no WEIGHTS_BUCKET in pool-context"; exit 1; }
   echo "syncing /cache -> s3://${WEIGHTS_BUCKET}/hf-cache"
-  aws s3 sync /cache "s3://${WEIGHTS_BUCKET}/hf-cache" --no-progress
+  # The HF cache stores each file once in blobs/ and symlinks it from
+  # snapshots/. S3 has no symlinks, so a plain sync uploads every file twice
+  # (observed: 61.8GB for a 30.9GB model). Upload snapshots/ (symlinks followed
+  # -> real files) + refs/, skip blobs/: HF loads from snapshots/ on restore.
+  aws s3 sync /cache "s3://${WEIGHTS_BUCKET}/hf-cache" --no-progress --exclude "*/blobs/*"
 '
 ok "weights cached — next spin-up prefetches from S3 (free via gateway endpoint)"

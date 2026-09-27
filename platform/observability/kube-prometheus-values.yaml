@@ -35,6 +35,11 @@ grafana:
         gnetId: 12239
         revision: 2
         datasource: Prometheus
+      # vLLM's official dashboard (tokens/s, TTFT, inter-token latency, queue,
+      # KV cache), pinned to the serving image's version. Needs the vllm
+      # ServiceMonitor (platform/observability/vllm-servicemonitor.yaml).
+      vllm:
+        url: https://raw.githubusercontent.com/vllm-project/vllm/v0.24.0/examples/observability/prometheus_grafana/grafana.json
 
 # Trim components that are noise on a short-lived, single-purpose cluster.
 alertmanager:

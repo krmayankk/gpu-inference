@@ -1,0 +1,35 @@
+=== inference-gpu-workers-worker-bqml2 [worker] node=ip-10-0-2-72.ec2.internal
+    PID     ELAPSED   RSS CMD
+    273       44:37 3589668 ray::RayWorkerProc.run
+    176       45:13 137568 /usr/bin/python3 -u /usr/local/lib/python3.12/dist-packages/ray/dashboard/agent.py --node-ip-address=10.0.2.99 --metrics-export-port=8080 --dashboard-agent-port=51775 --list
+    136       45:13 36484 /usr/local/lib/python3.12/dist-packages/ray/core/src/ray/raylet/raylet --raylet_socket_name=/tmp/ray/session_2026-09-27_06-29-49_156269_86/sockets/raylet --store_socket_name=
+
+=== inference-gpu-workers-worker-fmgnf [worker] node=ip-10-0-2-10.ec2.internal
+    PID     ELAPSED   RSS CMD
+    278       44:51 3575164 ray::RayWorkerProc.run
+    179       45:27 138672 /usr/bin/python3 -u /usr/local/lib/python3.12/dist-packages/ray/dashboard/agent.py --node-ip-address=10.0.2.44 --metrics-export-port=8080 --dashboard-agent-port=57870 --list
+    141       45:27 36648 /usr/local/lib/python3.12/dist-packages/ray/core/src/ray/raylet/raylet --raylet_socket_name=/tmp/ray/session_2026-09-27_06-29-49_156269_86/sockets/raylet --store_socket_name=
+
+=== inference-gpu-workers-worker-g6pg9 [worker] node=ip-10-0-2-119.ec2.internal
+    PID     ELAPSED   RSS CMD
+    280       45:05 3514496 ray::RayWorkerProc.run
+    181       45:41 138676 /usr/bin/python3 -u /usr/local/lib/python3.12/dist-packages/ray/dashboard/agent.py --node-ip-address=10.0.2.249 --metrics-export-port=8080 --dashboard-agent-port=56916 --lis
+    143       45:41 36040 /usr/local/lib/python3.12/dist-packages/ray/core/src/ray/raylet/raylet --raylet_socket_name=/tmp/ray/session_2026-09-27_06-29-49_156269_86/sockets/raylet --store_socket_name=
+
+=== inference-head-t4zvd [head] node=ip-10-0-2-247.ec2.internal
+    PID     ELAPSED   RSS CMD
+   1144       45:19 3437940 ray::RayWorkerProc.run
+      1       46:05 1728964 /usr/bin/python3 /usr/local/bin/vllm serve Qwen/Qwen3.8-27B-FP8 --served-model-name=gpu-inference --pipeline-parallel-size=4 --tensor-parallel-size=1 --distributed-executor
+    778       45:26 1183572 VLLM::EngineCore
+    586       45:54 139956 /usr/bin/python3 -u /usr/local/lib/python3.12/dist-packages/ray/dashboard/agent.py --node-ip-address=10.0.2.90 --metrics-export-port=37239 --dashboard-agent-port=54266 --lis
+    832       45:20 85400 ray::IDLE
+    836       45:20 78084 ray::IDLE
+    837       45:20 77940 ray::IDLE
+    835       45:20 77796 ray::IDLE
+    838       45:20 77760 ray::IDLE
+    831       45:20 77688 ray::IDLE
+    833       45:20 77656 ray::IDLE
+    834       45:20 77680 ray::IDLE
+     97       45:56 67720 /usr/local/lib/python3.12/dist-packages/ray/core/src/ray/gcs/gcs_server --log_dir=/tmp/ray/session_2026-09-27_06-29-49_156269_86/logs --config_list=eyJvYmplY3Rfc3BpbGxpbmdfY2
+    546       45:54 40072 /usr/local/lib/python3.12/dist-packages/ray/core/src/ray/raylet/raylet --raylet_socket_name=/tmp/ray/session_2026-09-27_06-29-49_156269_86/sockets/raylet --store_socket_name=
+

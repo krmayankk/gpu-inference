@@ -1,0 +1,17 @@
+# seam contract test against the l4x4 GPU backend (via port-forward)
+# captured: 2026-09-27T07:21:11Z
+# $ python3 scripts/contract.py http://localhost:8000
+
+  ok   models: object == 'list'
+  ok   models: at least one model with an id
+  ok   completion: object == 'chat.completion'
+  ok   completion: has id
+  ok   completion: role == 'assistant'
+  ok   completion: non-empty content
+  ok   completion: finish_reason present
+  ok   multi-turn: accepted with content
+  ok   stream: content-type is text/event-stream
+  ok   stream: at least one content delta chunk
+  ok   stream: terminates with data: [DONE]
+
+CONTRACT HOLDS: this backend is a valid occupant of the serving seam.

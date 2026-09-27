@@ -1,0 +1,9 @@
+# how a worker pod requests its GPU
+# captured: 2026-09-27T07:14:45Z
+# $ bash -c 
+    kubectl --kubeconfig './.kubeconfig' -n 'inference' get pod -l ray.io/node-type=worker       -o jsonpath='{range .items[0]}resources: {.spec.containers[0].resources}{"\n"}nodeSelector: {.spec.nodeSelector}{"\n"}tolerations: {.spec.tolerations}{"\n"}resourceClaims: {.spec.resourceClaims}{"\n"}{end}'
+
+resources: {"limits":{"nvidia.com/gpu":"1"},"requests":{"nvidia.com/gpu":"1"}}
+nodeSelector: {"nvidia.com/gpu.present":"true"}
+tolerations: [{"effect":"NoSchedule","key":"nvidia.com/gpu","operator":"Exists"},{"effect":"NoExecute","key":"node.kubernetes.io/not-ready","operator":"Exists","tolerationSeconds":300},{"effect":"NoExecute","key":"node.kubernetes.io/unreachable","operator":"Exists","tolerationSeconds":300}]
+resourceClaims: 

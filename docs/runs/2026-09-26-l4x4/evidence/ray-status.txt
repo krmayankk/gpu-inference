@@ -1,0 +1,29 @@
+# Ray's view: nodes, GPUs, placement groups
+# captured: 2026-09-27T07:14:41Z
+# $ k -n inference exec inference-head-t4zvd -c ray-head -- ray status
+
+======== Autoscaler status: 2026-09-27 07:14:41.633434 ========
+Node status
+---------------------------------------------------------------
+Active:
+ 1 node_d7e15a3e5434d37190b41493aee2f65c4dc40ad9abf44f88b22deb3e
+ 1 node_4e239daf7df088ee9bad1685e9b35b861ea833583ea33a8773e8bb0a
+ 1 node_bf1898701318b44b3832592398afac03f6249de668b07ff25272249d
+ 1 node_591617f59e5f8be1ecac56bd29ea019f1967c1794998df90ded162df
+Pending:
+ (no pending nodes)
+Recent failures:
+ (no failures)
+
+Resources
+---------------------------------------------------------------
+Total Usage:
+ 0.0/32.0 CPU
+ 4.0/4.0 GPU (4.0 used of 4.0 reserved in placement groups)
+ 0B/83.54GiB memory
+ 0B/35.80GiB object_store_memory
+
+Total Constraints:
+ (no request_resources() constraints)
+Total Demands:
+ (no resource demands)

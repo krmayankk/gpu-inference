@@ -9,6 +9,7 @@ any single L4** (30.9GB of fp8 weights vs 24GB of VRAM), so it is split across f
 machines. What follows is what it took, what broke, and how to look inside.
 
 - Layer map (how to run this level): `docs/phases.md` · procedure: `docs/runbooks/l4x4-live-test.md`
+- This run's raw evidence, incidents and screenshots: `docs/runs/2026-09-26-l4x4/`
 - Profile: `platform/serving/gpus/l4x4/` · decision record: ADR-0011 in `docs/decisions.md`
 
 ---
@@ -236,8 +237,23 @@ Processes per pod, raw (`ps` filtered to vLLM/Ray):
 
 ## 9. Results
 
-*To be filled from this run: model load time, contract test, decode tok/s, GPU memory
-per stage (DCGM), Grafana screenshots, `make down` zero-orphan proof.*
+- **Seam contract: 11/11** — the same assertions that passed the mock and the 1-GPU
+  profile, unchanged, against a model split over four machines.
+- **8.1 tok/s** single-request decode (Phase 1's 7B on one L4: 28.8), **0.43 s** to first
+  token on a short prompt, up to **~7.5 s** on Continue's 5–10K-token agent prompts —
+  prefix caching is not active for this hybrid model, so every turn re-reads the
+  conversation.
+- **All four GPUs at 100% together** under concurrent requests; 8.8–11.7 GB used per
+  stage; KV cache peaked at ~3%.
+- **Driven from VS Code** (Continue agent mode): a Go binary search compiled and ran first
+  try; a Go + JS bouncing-ball game worked but felt janky (keyboard stutter,
+  frame-rate-dependent paddle, tunnelling at speed) — roughly 75–80% of frontier on that
+  task, in the reviewer's opinion.
+
+Full numbers, timeline, every incident and the raw evidence:
+[`docs/runs/2026-09-26-l4x4/`](../runs/2026-09-26-l4x4/README.md).
+
+![All four GPUs at 100% under concurrent load](../runs/2026-09-26-l4x4/screenshots/07-all-4-gpus-100pct-under-concurrent-load.png)
 
 ## Try it yourself
 

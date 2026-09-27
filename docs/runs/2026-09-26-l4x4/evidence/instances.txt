@@ -1,0 +1,14 @@
+# EC2 instances in this platform (Project tag)
+# captured: 2026-09-27T07:14:05Z
+# $ aws ec2 describe-instances --region us-east-1 --filters Name=tag:Project,Values=gpu-inference Name=instance-state-name,Values=running --query Reservations[].Instances[].[InstanceId,InstanceType,Placement.AvailabilityZone,LaunchTime] --output table
+
+----------------------------------------------------------------------------------
+|                                DescribeInstances                               |
++----------------------+-------------+-------------+-----------------------------+
+|  i-0cc663d2dea6b8d94 |  t3.medium  |  us-east-1a |  2026-09-27T05:37:55+00:00  |
+|  i-0ddce47180b3ddf96 |  t3.medium  |  us-east-1b |  2026-09-27T05:37:55+00:00  |
+|  i-04da05b2122724ca5 |  g6.2xlarge |  us-east-1b |  2026-09-27T05:47:19+00:00  |
+|  i-09ce73043df3b61ae |  g6.2xlarge |  us-east-1b |  2026-09-27T05:47:19+00:00  |
+|  i-0d55ac6747ade5733 |  g6.2xlarge |  us-east-1b |  2026-09-27T05:46:58+00:00  |
+|  i-08b668a1cf09dfcc4 |  g6.2xlarge |  us-east-1b |  2026-09-27T05:49:03+00:00  |
++----------------------+-------------+-------------+-----------------------------+

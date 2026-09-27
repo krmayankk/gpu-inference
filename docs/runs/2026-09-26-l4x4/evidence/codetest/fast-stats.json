@@ -1,0 +1,14 @@
+{
+ "variant": "fast",
+ "seconds": 541.4,
+ "prompt_tokens": 199,
+ "completion_tokens": 4022,
+ "tok_per_s": 7.4,
+ "reasoning_chars": 0,
+ "finish_reason": "stop",
+ "files": [
+  "logstats.py",
+  "test_logstats.py",
+  "sample.log"
+ ]
+}

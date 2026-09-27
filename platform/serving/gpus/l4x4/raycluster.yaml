@@ -31,7 +31,8 @@
 # Ray is NOT in the vllm/vllm-openai image (an optional vLLM dependency since
 # the v0.2x line), so every pod installs the version vLLM v0.24.0 tests against
 # before `ray start`; rayVersion below must match it. Head and workers both
-# carry the overwrite annotation: workers install Ray, then exec KubeRay's own
+# carry the overwrite annotation: workers install Ray, wait for the head's GCS
+# (KubeRay's injected wait is disabled — it needs Ray in the image), then exec KubeRay's own
 # generated start command ($KUBERAY_GEN_RAY_START_CMD). Backlog: bake this into
 # a derived image so cold start doesn't depend on PyPI.
 #
@@ -179,6 +180,9 @@ spec:
               args:
                 - |
                   uv pip install --system -q "ray[cgraph,default]==2.48.0" && \
+                  until ray health-check --address inference-head-svc:6379 >/dev/null 2>&1; do
+                    echo "waiting for Ray GCS on inference-head-svc:6379"; sleep 5
+                  done && \
                   exec bash -lc "$KUBERAY_GEN_RAY_START_CMD"
               env:
                 - name: HF_HOME

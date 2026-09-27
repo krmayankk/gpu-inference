@@ -62,11 +62,17 @@ if [[ "${GPU_CAPABLE}" == "1" ]]; then
   helm --kubeconfig "${KUBECONFIG_PATH}" repo add kuberay \
     https://ray-project.github.io/kuberay-helm/ >/dev/null 2>&1 || true
   helm --kubeconfig "${KUBECONFIG_PATH}" repo update >/dev/null
+  # Init-container injection OFF: KubeRay's injected wait-gcs-ready runs
+  # `ray health-check` in the worker's own image, and vllm/vllm-openai has no
+  # Ray — observed live, it looped on "ray: command not found" forever. The
+  # l4x4 workers do the same wait themselves after installing Ray.
   # Pinned: the operator owns the RayCluster CRD schema, so a floating chart
   # would let the controller change under an unchanged raycluster.yaml.
   helm --kubeconfig "${KUBECONFIG_PATH}" upgrade --install kuberay-operator \
     kuberay/kuberay-operator --version 1.7.1 \
     --namespace kuberay --create-namespace \
+    --set 'env[0].name=ENABLE_INIT_CONTAINER_INJECTION' \
+    --set-string 'env[0].value=false' \
     --wait --timeout 5m
 fi
 

@@ -8,7 +8,7 @@ while a phase is running; every phase returns the account to zero residual cost.
 |---|---|---|
 | 0 — Scaffolding + $0 chat demo | ~$0 (local kind) | **built** |
 | 1 — Single-GPU modern inference (L4, FP8) | ~$1.2/hr while up | **built** (verified live 2026-07-05) |
-| 2 — Distributed inference | a few $/hr | not started |
+| 2 — Distributed inference | a few $/hr | **scaffold built** (ADR-0011); live test pending |
 | 3 — GitOps + chat UI | as ph.2 | not started |
 | 4 — Autoscaling + cost autonomy | scales to 0 idle | not started |
 | 5 — Multi-cloud H100/H200 burst | burst only | not started |
@@ -63,6 +63,20 @@ spin-up. Security note for the record: weights-bucket access rides the node role
 ---
 
 ## Phase 2 — Distributed inference
+
+**What Phase 2 does that Phase 1 could not** — the delta, precisely:
+
+| | Phase 1 (built, verified live) | Phase 2 (this scaffold) |
+|---|---|---|
+| Capacity | 1 node, **1 GPU** (g6.2xlarge) | **4 nodes, 4 GPUs** (4× g6.2xlarge — exactly the 32-vCPU quota) |
+| Model | Qwen2.5-Coder-**7B** fp8 (~8GB — fits one L4) | Qwen**3-32B**-FP8 (~32GB — **cannot fit any single L4**; distribution is load-bearing, not a demo trick) |
+| Workload shape | one vLLM pod (Deployment) | vLLM as **4 pipeline stages**, one per GPU, coordinated by Ray on a KubeRay RayCluster |
+| Scheduling problem | trivial (pod → the GPU node) | placement: 4 pods across 4 tainted nodes; stages joined over the pod network |
+| Capacity declaration | hand-set (`gpu_desired_size=1`) | **travels with the profile** (`gpu_profiles.<key>.node_count`) — parallelism can't be declared without GPUs |
+| What the demo proves | the seam holds across substrates (mock ↔ GPU) | the seam holds across **topologies** (1 pod ↔ distributed cluster) — chat UI and contract test byte-identical |
+
+Live-test procedure, including the GPU-level inspection tour (`nvidia-smi` across the
+fleet, `ray status`, Ray dashboard, vLLM metrics): `docs/runbooks/l4x4-live-test.md`.
 
 **Build.** KubeRay RayCluster; vLLM with `tensor-parallel-size` across multiple GPUs (and a
 pipeline-parallel variant across nodes for the learning value); a 32–72B INT4/FP8 model.

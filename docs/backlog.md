@@ -64,3 +64,29 @@ nginx. Don't add Go for its own sake before those.
 - Model target: 32B-class INT4/FP8 (Qwen2.5-Coder-32B fits 4× L4 TP=4).
 - The t4/l4/h100 profile mechanism is ready for a `l4x4` profile — one
   directory + one gpu_profiles row, per ADR-0003 amendment.
+
+## Phase 2 measurements (added 2026-07-19)
+- **File the 48-vCPU G-quota increase in us-east-1** (L-DB2E81BA; needs MFA
+  session — human step): unlocks g6.12xlarge for the single-node TP=4 vs
+  multi-node PP=4 comparison the phase plan calls for.
+- First `make cache-weights` after l4x4 boot: pushes the ~33GB Qwen3-32B-FP8
+  cache so subsequent 4-node boots prefetch from S3 (NAT-free) instead of
+  4× HF downloads.
+
+## Helm chart pinning (hardening ladder addendum, 2026-07-19)
+All in-cluster helm installs (gpu-operator, kube-prometheus-stack,
+kuberay-operator) currently float on latest — consistent demo-grade
+convention, but each `make up` can pull a different operator version.
+Production-grade: pin chart + app versions in one place (a versions.env
+sourced by up.sh), bump deliberately in PRs the gate reviews. One PR, all
+charts at once. *Phase 3 ladder.*
+
+## Token / cache / cost observability (user ask, 2026-07-19)
+vLLM already exports the raw series (`/metrics`): prompt/generation token
+counters, TTFT/TPOT latencies, KV-cache utilization, prefix-cache hit rate.
+Build the Grafana dashboard that turns them into the operator's view:
+tokens/sec per model, cache hit rates, and **$/1M-tokens computed from the
+pool's live $/hr** (pool-context already carries pool identity — add the
+hourly price there and the cost view stays seam-clean; nothing above the
+seam learns a provider). Feeds Phase 4's cost-autonomy loop directly: the
+same series the operator agent will act on. *Phase 2 stretch or early Phase 3.*

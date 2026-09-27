@@ -191,3 +191,29 @@ switch attaches its scale-to-zero schedule (see `infra/pools/aws/up.sh`).
 inference demos; the KEDA/Karpenter pair owns elasticity later. Public API endpoint and node-role
 S3 access are the matching demo-grade simplifications (IRSA + private endpoint are Phase-3
 hardening, noted in docs/phases.md).
+
+---
+
+## ADR-0011 — Multi-GPU profiles bring their own workload; the seam stays at the Service
+
+**Decision.** A GPU profile whose model cannot fit one GPU does not patch the single-pod
+vLLM Deployment — its `platform/serving/gpus/<profile>/` ships a **KubeRay RayCluster**
+(vLLM with the Ray distributed backend) plus the same `inference` Service every other
+profile has. Phase 2's `l4x4` is the first: Qwen3-32B-FP8, **PP=4 across 4× g6.2xlarge**
+(1 L4 each), head pod serving the OpenAI API.
+
+**Why PP across nodes, not TP.** Tensor parallelism all-reduces at every layer — over
+inter-node ENA networking that is the bottleneck; pipeline parallelism ships only stage-
+boundary activations and tolerates ordinary networks. TP belongs inside a box (NVLink/PCIe):
+TP=4 in one g6.12xlarge is the natural comparison, but at 48 vCPUs it exceeds the 32-vCPU
+G-quota, while 4× g6.2xlarge = 32 exactly. Measure PP now; measure TP when quota clears.
+
+**Why this doesn't break the seam.** ADR-0009 placed the seam at the `inference` Service,
+not at the Deployment: "above a stable `inference` Service … nothing knows what serves it."
+The profile directory is *below* the seam — exactly where hardware-shaped workloads belong
+(ADR-0002). Chat UI and contract test reach l4x4 unchanged; capacity travels with the
+profile via `gpu_profiles.<key>.node_count` so parallelism is never declared without GPUs.
+
+**Consequence.** The KubeRay operator joins the invariant in-cluster layer on GPU pools
+(idle cost ≈ one small pod). `up.sh`'s readiness gate handles both shapes: Deployment
+rollout, or Ray head pod Ready (which implies vLLM /health passed and all stages placed).

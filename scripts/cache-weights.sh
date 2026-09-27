@@ -9,7 +9,15 @@ source "$(dirname "$0")/lib.sh"
 k cluster-info >/dev/null 2>&1 || die "no running cluster — run 'make up' first"
 
 banner "cache weights -> S3"
-k -n "${NAMESPACE}" exec deploy/inference -c cache-sync -- /bin/bash -c '
+# Single-pod profiles: the Deployment. Ray profiles: the head pod (it carries
+# the same cache-sync sidecar over its own weights volume).
+if k -n "${NAMESPACE}" get deploy/inference >/dev/null 2>&1; then
+  TARGET="deploy/inference"
+else
+  TARGET="$(k -n "${NAMESPACE}" get pod -l ray.io/node-type=head -o name | head -1)"
+  [[ -n "${TARGET}" ]] || die "no inference Deployment or Ray head pod found"
+fi
+k -n "${NAMESPACE}" exec "${TARGET}" -c cache-sync -- /bin/bash -c '
   set -euo pipefail
   [[ -n "${WEIGHTS_BUCKET:-}" ]] || { echo "no WEIGHTS_BUCKET in pool-context"; exit 1; }
   echo "syncing /cache -> s3://${WEIGHTS_BUCKET}/hf-cache"

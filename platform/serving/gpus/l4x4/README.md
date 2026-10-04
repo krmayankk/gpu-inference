@@ -84,6 +84,15 @@ worker 3:    Ray (raylet)         +  stage 3, layers 49-64  ◀── Ray starts
 So yes, Ray starts vLLM on the workers — but only the *stage* processes, and only
 because the main vLLM process on the head asked it to.
 
+- **Who starts what:** `up.sh` only applies the `RayCluster`; KubeRay makes the pods; each
+  pod's own command does the rest. Nobody hands vLLM an address — `ray.init()` with none
+  attaches to the Ray head already running in the same container.
+- **Why it isn't backwards:** Ray is the platform (a small "Kubernetes for Python
+  processes"), vLLM is the app that asks it for GPUs. Ray in charge of vLLM is a different
+  setup — Ray Serve / KubeRay `RayService`, for many autoscaled replicas.
+- **Why `exec`:** it replaces the shell with vLLM, making vLLM PID 1 — so it receives
+  Kubernetes' `SIGTERM` and shuts down cleanly, and the container dies when vLLM does.
+
 `ray.io/overwrite-container-cmd: "true"` tells KubeRay "use our command, not yours" —
 that is how "install Ray first" and "then run vLLM after `ray start`" fit in.
 

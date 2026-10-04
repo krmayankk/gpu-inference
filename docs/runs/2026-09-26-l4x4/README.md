@@ -31,6 +31,7 @@ served behind the same seam as the mock and the 1-GPU profile, driven from VS Co
 
 | Question | Answer in | Look at |
 |---|---|---|
+| Which code and versions were deployed? | `evidence/` | `meta.txt` (git SHA = tag `runs/2026-09-26-l4x4`, kubectl/EKS versions) |
 | Did it really run on 4 GPUs on 4 machines? | `evidence/` | `instances.txt`, `nodes.txt` (GPU labels per node), `nvidia-smi.txt` (every GPU), `pods-all.txt` |
 | How does a pod get a GPU? | `evidence/` | `gpu-request.txt`, `gpu-operator.txt`, `dra.txt` (DRA present, unused) |
 | Did Ray form one cluster, and where does vLLM run? | `evidence/` | `raycluster.txt`, `ray-status.txt` (4/4 GPU), `processes-per-pod.txt`; `screenshots/12–13` |

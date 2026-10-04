@@ -31,14 +31,15 @@ with the same endpoint and contract. L2 and the operator agent are the path belo
 
 ## Two things, kept separate
 
-This repo is *built by* an agentic development workflow; it is not that workflow.
+This repo is *built by* an agent-native development platform; it is not that platform.
 
-| | Agentic dev platform | gpu-inference (this repo) |
+| | Agent-native dev platform | gpu-inference (this repo) |
 |---|---|---|
-| What | **how** we build: GitOps + agents — Sentinel reviews every PR today; later work intake (e.g. Linear) and agents that author PRs | **what** we build: a GPU inference service |
-| Runs on | GitHub Actions + hosted LLM APIs (Anthropic today, OpenRouter next) — **not** our AWS GPUs | ephemeral EKS (GKE later) |
-| Lives in | `krmayankk/sentinel` (+ future repos) | here |
-| Relationship | builds gpu-inference and any other project | one project it builds |
+| What | **how** we ship infra and code: agents do the work with almost no hand-holding; validations and tests (not necessarily PRs) drive each change; a guardrails framework decides what may land | **what** we build: a GPU inference service |
+| Today | one agent — Sentinel, a PR reviewer — on GitHub Actions + hosted LLM APIs | ephemeral EKS (GKE later) |
+| Direction | more agents (planner, implementer, operator); triggers beyond PRs (agent commits, pre-receive, merge queue); human oversight through channels (e.g. Slack) only when needed; cheaper models (OpenRouter) | the path in this doc |
+| Lives in | `krmayankk/sentinel` today; the wider fleet gets its own home (sentinel PLAN.md) | here |
+| Relationship | builds many projects — gpu-inference, revbench, and more to come | one of those projects |
 
 Here, Sentinel appears only as this repo's PR gate and its rules (`CLAUDE.md`,
 `.sentinel/skills/`). **Someday, explicitly not planned:** this service grows an agent

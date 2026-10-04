@@ -1,5 +1,8 @@
 # Phase Ladder
 
+The direction this ladder climbs toward, and what "at scale" adds to each rung:
+[`north-star.md`](north-star.md).
+
 Each phase is independently **build → test → demo → tear down clean**. Money is spent only
 while a phase is running; every phase returns the account to zero residual cost. A phase is
 "done" when its demo runs end-to-end *and* `make down` verifies zero orphaned resources.

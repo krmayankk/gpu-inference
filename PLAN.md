@@ -182,6 +182,8 @@ zero when idle — the cost guarantee) and **KEDA / HPA** (vLLM replicas on requ
 The platform is built as an independently demoable ladder — each phase spins up, is tested,
 demonstrated, and torn down clean. See [`docs/phases.md`](docs/phases.md) for the full ladder
 and [`docs/decisions.md`](docs/decisions.md) for the locked design decisions.
+Where it goes at scale — the AI-native platform, the seven at-scale gaps, quota reality,
+and the next PRs — is [`docs/north-star.md`](docs/north-star.md).
 
 | Phase | Outcome |
 |---|---|

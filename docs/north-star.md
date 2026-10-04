@@ -44,7 +44,7 @@ with the same endpoint and contract. Everything above L1 is the path below.
 |---|---|---|
 | 0 | scaffolding, `make up/down`, Sentinel gate, zero-orphan proof | **built** |
 | 1 | 1 GPU, FP8, observability | **built** — 7B on 1×L4, 28.8 tok/s |
-| 2 | distributed inference | **PP across nodes built** (27B on 4×L4, 8.1 tok/s). **TP within a node: not yet** (needs quota) |
+| 2 | distributed inference | **PP across nodes built** (27B on 4×L4, 8.1 tok/s). **TP within a node: not yet** (quota now allows it) |
 | 3 | GitOps + chat UI + agentic layer | not started |
 | 4 | autoscaling + cost-autonomy operator agent | not started |
 | 5 | multi-cloud H100 burst | not started |
@@ -72,7 +72,7 @@ Each is small, reviewed on its own, and ships a README in the style of
 | 1 | **Sentinel rules from the l4x4 run** (CLAUDE.md, skills, lint) | lessons are fresh; cheap | $0 |
 | 2 | **Prefix caching + speculative decoding knobs** on l4x4 / l4 | biggest latency win for agent prompts (TTFT up to 7.5s) | $0 to write; live check rides the next run |
 | 3 | **`l40s` profile: 27B on one g6e (L40S 48GB)** | same model, no network hops: tests the bandwidth math (Part 2) | fits current quota |
-| 4 | **`l4x4tp`: TP=4 inside one g6.12xlarge** | the TP-vs-PP comparison Phase 2 promised | **needs quota 32→48 vCPU** |
+| 4 | **`l4x4tp`: TP=4 inside one g6.12xlarge** | the TP-vs-PP comparison Phase 2 promised | fits (48 of 64 vCPU) |
 | 5 | **Replicas + KV-aware routing** (2+ copies behind llm-d / GIE) | first real L2 piece | fits current quota |
 | 6 | **Ingress + API keys** | retire port-forward; first front-door piece | $0 GPU |
 | 7 | **GKE pool** (`infra/pools/gke`) | second provider; compare GPU ergonomics | new project + GPU quota |
@@ -104,16 +104,16 @@ weight once. So, roughly, **tok/s ≈ bandwidth ÷ bytes read per token**.
 
 ## Quota and budget reality
 
-AWS G/VT on-demand quota in us-east-1: **32 vCPUs** (L-DB2E81BA). P-family (A100/H100)
-is a separate quota, never requested. AWS credits remaining: ~$90 after the l4x4 run
-(estimate — verify before spending).
+Checked 2026-10-04, us-east-1: G/VT on-demand quota **64 vCPUs** (L-DB2E81BA, raised
+from 32); G/VT spot 8 (request for 32 open); P-family (A100/H100) **0**. AWS credits
+remaining: **$80.29**. Every type below is offered in at least 4 us-east-1 zones.
 
-| Capability | Needs | Fits 32 vCPU G? |
+| Capability | Needs | Fits 64 vCPU G? |
 |---|---|---|
 | Replicas, autoscaling, KV-aware routing | 2–4 small GPU nodes (7B on L4, or 27B on L40S) | **yes** |
 | Prefix caching, speculative decoding | config only | **yes** |
 | 27B on one L40S | g6e.xlarge / 2xlarge (4 / 8 vCPU) | **yes** |
-| TP=4 in one node | g6.12xlarge or g6e.12xlarge (48 vCPU) | **no** → request 48 |
+| TP=4 in one node | g6.12xlarge (4×L4) or g6e.12xlarge (4×L40S), 48 vCPU each | **yes** — one at a time |
 | Prefill/decode disaggregation (meaningful) | fast KV transfer (NVLink / EFA) | no → Phase 5 |
 | 8×H100 NVLink (TP=8) | P quota + Capacity Block | no → Phase 5 |
 | Ingress, auth, SLOs, GitOps, agents | no GPU | **yes** |

@@ -1,0 +1,11 @@
+# nodes: type, zone, GPU as seen by GPU Feature Discovery
+# captured: 2026-09-27T07:14:07Z
+# $ kubectl --kubeconfig ./.kubeconfig get nodes -o wide -L node.kubernetes.io/instance-type,topology.kubernetes.io/zone,nvidia.com/gpu.product,nvidia.com/gpu.memory,nvidia.com/gpu.count
+
+NAME                         STATUS   ROLES    AGE   VERSION                INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION                     CONTAINER-RUNTIME            INSTANCE-TYPE   ZONE         GPU.PRODUCT   GPU.MEMORY   GPU.COUNT
+ip-10-0-1-202.ec2.internal   Ready    <none>   95m   v1.34.11-eks-f4fc4f1   10.0.1.202    <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   t3.medium       us-east-1a                              
+ip-10-0-2-10.ec2.internal    Ready    <none>   86m   v1.34.11-eks-f4fc4f1   10.0.2.10     <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   g6.2xlarge      us-east-1b   NVIDIA-L4     23034        1
+ip-10-0-2-119.ec2.internal   Ready    <none>   86m   v1.34.11-eks-f4fc4f1   10.0.2.119    <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   g6.2xlarge      us-east-1b   NVIDIA-L4     23034        1
+ip-10-0-2-128.ec2.internal   Ready    <none>   95m   v1.34.11-eks-f4fc4f1   10.0.2.128    <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   t3.medium       us-east-1b                              
+ip-10-0-2-247.ec2.internal   Ready    <none>   86m   v1.34.11-eks-f4fc4f1   10.0.2.247    <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   g6.2xlarge      us-east-1b   NVIDIA-L4     23034        1
+ip-10-0-2-72.ec2.internal    Ready    <none>   84m   v1.34.11-eks-f4fc4f1   10.0.2.72     <none>        Amazon Linux 2023.12.20260918   6.12.103-129.197.amzn2023.x86_64   containerd://2.2.7+unknown   g6.2xlarge      us-east-1b   NVIDIA-L4     23034        1

@@ -1,0 +1,6 @@
+# GPU operator health (ClusterPolicy)
+# captured: 2026-09-27T07:14:24Z
+# $ k get clusterpolicy -o wide
+
+NAME             STATUS   AGE
+cluster-policy   ready    2026-09-27T05:52:16Z

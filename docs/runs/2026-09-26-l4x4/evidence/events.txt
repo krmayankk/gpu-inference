@@ -1,0 +1,91 @@
+# cluster events, oldest first (the boot timeline; expires ~1h)
+# captured: 2026-09-27T07:14:20Z
+# $ k get events -A --sort-by=.metadata.creationTimestamp
+
+NAMESPACE   LAST SEEN   TYPE      REASON              OBJECT                                   MESSAGE
+inference   50m         Normal    Pulled              pod/inference-head-cbd9q                 Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   50m         Normal    Created             pod/inference-head-cbd9q                 Created container: ray-head
+inference   50m         Normal    Started             pod/inference-head-cbd9q                 Started container ray-head
+inference   46m         Warning   Unhealthy           pod/inference-head-cbd9q                 Startup probe failed: Get "http://10.0.2.220:8000/health": dial tcp 10.0.2.220:8000: connect: connection refused
+inference   60m         Normal    Scheduled           pod/inference-gpu-workers-worker-45t6w   Successfully assigned inference/inference-gpu-workers-worker-45t6w to ip-10-0-2-10.ec2.internal
+inference   60m         Normal    Pulled              pod/inference-gpu-workers-worker-45t6w   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   60m         Normal    Created             pod/inference-gpu-workers-worker-45t6w   Created container: weights-prefetch
+inference   60m         Normal    Started             pod/inference-gpu-workers-worker-45t6w   Started container weights-prefetch
+inference   60m         Normal    Scheduled           pod/inference-gpu-workers-worker-f855n   Successfully assigned inference/inference-gpu-workers-worker-f855n to ip-10-0-2-72.ec2.internal
+inference   60m         Normal    Scheduled           pod/inference-gpu-workers-worker-k6vjc   Successfully assigned inference/inference-gpu-workers-worker-k6vjc to ip-10-0-2-119.ec2.internal
+inference   60m         Normal    Started             pod/inference-gpu-workers-worker-f855n   Started container weights-prefetch
+inference   60m         Normal    Started             pod/inference-gpu-workers-worker-k6vjc   Started container weights-prefetch
+inference   60m         Normal    Pulled              pod/inference-gpu-workers-worker-k6vjc   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   60m         Normal    Created             pod/inference-gpu-workers-worker-f855n   Created container: weights-prefetch
+inference   60m         Normal    Pulled              pod/inference-gpu-workers-worker-f855n   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   60m         Normal    Created             pod/inference-gpu-workers-worker-k6vjc   Created container: weights-prefetch
+inference   50m         Normal    Created             pod/inference-gpu-workers-worker-45t6w   Created container: ray-worker
+inference   50m         Normal    Pulled              pod/inference-gpu-workers-worker-k6vjc   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   50m         Normal    Pulled              pod/inference-gpu-workers-worker-45t6w   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   50m         Normal    Started             pod/inference-gpu-workers-worker-45t6w   Started container ray-worker
+inference   50m         Normal    Pulled              pod/inference-gpu-workers-worker-f855n   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   50m         Normal    Created             pod/inference-gpu-workers-worker-f855n   Created container: ray-worker
+inference   50m         Normal    Started             pod/inference-gpu-workers-worker-f855n   Started container ray-worker
+inference   50m         Normal    Created             pod/inference-gpu-workers-worker-k6vjc   Created container: ray-worker
+inference   50m         Normal    Started             pod/inference-gpu-workers-worker-k6vjc   Started container ray-worker
+inference   59m         Warning   Unhealthy           pod/inference-gpu-workers-worker-45t6w   Readiness probe failed: bash: line 1: wget: command not found
+inference   59m         Warning   Unhealthy           pod/inference-gpu-workers-worker-k6vjc   Readiness probe failed: bash: line 1: wget: command not found
+inference   50m         Warning   Unhealthy           pod/inference-gpu-workers-worker-f855n   Readiness probe failed: bash: line 1: wget: command not found
+inference   45m         Warning   Unhealthy           pod/inference-gpu-workers-worker-45t6w   Liveness probe failed: bash: line 1: wget: command not found
+inference   45m         Warning   Unhealthy           pod/inference-gpu-workers-worker-k6vjc   Liveness probe failed: bash: line 1: wget: command not found
+inference   45m         Warning   Unhealthy           pod/inference-gpu-workers-worker-f855n   Liveness probe failed: bash: line 1: wget: command not found
+inference   51m         Warning   Unhealthy           pod/inference-head-cbd9q                 Liveness probe failed: bash: line 1: wget: command not found
+inference   50m         Normal    Killing             pod/inference-gpu-workers-worker-k6vjc   Container ray-worker failed liveness probe, will be restarted
+inference   50m         Normal    Killing             pod/inference-gpu-workers-worker-45t6w   Container ray-worker failed liveness probe, will be restarted
+inference   50m         Normal    Killing             pod/inference-gpu-workers-worker-f855n   Container ray-worker failed liveness probe, will be restarted
+kuberay     45m         Normal    ScalingReplicaSet   deployment/kuberay-operator              Scaled up replica set kuberay-operator-5954d66cf4 from 0 to 1
+kuberay     45m         Normal    SuccessfulDelete    replicaset/kuberay-operator-6f68c7869    Deleted pod: kuberay-operator-6f68c7869-589ll
+kuberay     45m         Normal    Scheduled           pod/kuberay-operator-5954d66cf4-v68lm    Successfully assigned kuberay/kuberay-operator-5954d66cf4-v68lm to ip-10-0-1-202.ec2.internal
+kuberay     45m         Normal    ScalingReplicaSet   deployment/kuberay-operator              Scaled down replica set kuberay-operator-6f68c7869 from 1 to 0
+kuberay     45m         Normal    SuccessfulCreate    replicaset/kuberay-operator-5954d66cf4   Created pod: kuberay-operator-5954d66cf4-v68lm
+kuberay     45m         Normal    Killing             pod/kuberay-operator-6f68c7869-589ll     Stopping container kuberay-operator
+kuberay     45m         Normal    Started             pod/kuberay-operator-5954d66cf4-v68lm    Started container kuberay-operator
+kuberay     45m         Normal    Created             pod/kuberay-operator-5954d66cf4-v68lm    Created container: kuberay-operator
+kuberay     45m         Normal    Pulled              pod/kuberay-operator-5954d66cf4-v68lm    Container image "quay.io/kuberay/operator:v1.7.1" already present on machine
+kuberay     45m         Normal    LeaderElection      lease/ray-operator-leader                kuberay-operator-5954d66cf4-v68lm_8ccb7bc7-b732-48c2-a2e4-634ed14e631d became leader
+inference   44m         Normal    DeletedWorkerPod    raycluster/inference                     Deleted worker Pod inference/inference-gpu-workers-worker-45t6w; Pod status: Failed; Pod restart policy: Always; Ray container terminated status: &ContainerStateTerminated{ExitCode:1,Signal:0,Reason:Error,Message:,StartedAt:2026-09-27 06:24:08 +0000 UTC,FinishedAt:2026-09-27 06:29:36 +0000 UTC,ContainerID:containerd://db0b5346deaa488e45f53302026c66ccf5d78e63430486ad1974e75db962e72b,}
+inference   44m         Normal    Killing             pod/inference-gpu-workers-worker-k6vjc   Stopping container ray-worker
+inference   44m         Normal    Killing             pod/inference-gpu-workers-worker-45t6w   Stopping container ray-worker
+inference   44m         Normal    Killing             pod/inference-gpu-workers-worker-f855n   Stopping container ray-worker
+inference   44m         Normal    Killing             pod/inference-head-cbd9q                 Stopping container ray-head
+inference   44m         Normal    DeletedHeadPod      raycluster/inference                     Deleted head Pod inference/inference-head-cbd9q; Pod status: Succeeded; Pod restart policy: Always; Ray container terminated status: &ContainerStateTerminated{ExitCode:0,Signal:0,Reason:Completed,Message:,StartedAt:2026-09-27 06:24:14 +0000 UTC,FinishedAt:2026-09-27 06:29:37 +0000 UTC,ContainerID:containerd://fce5568661bdb7e32f3219d9eabb414de55717353ba7ead2c1a6fbe907de5542,}
+inference   44m         Normal    DeletedWorkerPod    raycluster/inference                     Deleted worker Pod inference/inference-gpu-workers-worker-f855n; Pod status: Failed; Pod restart policy: Always; Ray container terminated status: &ContainerStateTerminated{ExitCode:1,Signal:0,Reason:Error,Message:,StartedAt:2026-09-27 06:24:09 +0000 UTC,FinishedAt:2026-09-27 06:29:36 +0000 UTC,ContainerID:containerd://272a8d263bc84596b321f61f51286dbfc5b96b82ae117440f9015356c29d2365,}
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-bqml2   Created container: weights-prefetch
+inference   44m         Normal    Pulled              pod/inference-head-t4zvd                 Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-g6pg9   Created container: weights-prefetch
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-bqml2   Started container weights-prefetch
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-fmgnf   Started container weights-prefetch
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-bqml2   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   44m         Normal    Scheduled           pod/inference-gpu-workers-worker-bqml2   Successfully assigned inference/inference-gpu-workers-worker-bqml2 to ip-10-0-2-72.ec2.internal
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-g6pg9   Started container weights-prefetch
+inference   44m         Normal    Scheduled           pod/inference-head-t4zvd                 Successfully assigned inference/inference-head-t4zvd to ip-10-0-2-247.ec2.internal
+inference   44m         Normal    Scheduled           pod/inference-gpu-workers-worker-g6pg9   Successfully assigned inference/inference-gpu-workers-worker-g6pg9 to ip-10-0-2-119.ec2.internal
+inference   44m         Normal    Created             pod/inference-head-t4zvd                 Created container: weights-prefetch
+inference   44m         Normal    Scheduled           pod/inference-gpu-workers-worker-fmgnf   Successfully assigned inference/inference-gpu-workers-worker-fmgnf to ip-10-0-2-10.ec2.internal
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-g6pg9   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   44m         Normal    CreatedHeadPod      raycluster/inference                     Created head Pod inference/inference-head-t4zvd
+inference   44m         Normal    CreatedWorkerPod    raycluster/inference                     Created worker Pod inference/inference-gpu-workers-worker-fmgnf
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-fmgnf   Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-fmgnf   Created container: weights-prefetch
+inference   44m         Normal    Started             pod/inference-head-t4zvd                 Started container weights-prefetch
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-g6pg9   Created container: ray-worker
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-g6pg9   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   44m         Normal    Created             pod/inference-head-t4zvd                 Created container: cache-sync
+inference   44m         Normal    Pulled              pod/inference-head-t4zvd                 Container image "public.ecr.aws/aws-cli/aws-cli:2.22.35" already present on machine
+inference   44m         Normal    Started             pod/inference-head-t4zvd                 Started container ray-head
+inference   44m         Normal    Created             pod/inference-head-t4zvd                 Created container: ray-head
+inference   44m         Normal    Started             pod/inference-head-t4zvd                 Started container cache-sync
+inference   44m         Normal    Pulled              pod/inference-head-t4zvd                 Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-bqml2   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-g6pg9   Started container ray-worker
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-fmgnf   Started container ray-worker
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-fmgnf   Created container: ray-worker
+inference   44m         Normal    Pulled              pod/inference-gpu-workers-worker-fmgnf   Container image "vllm/vllm-openai:v0.24.0" already present on machine
+inference   44m         Normal    Started             pod/inference-gpu-workers-worker-bqml2   Started container ray-worker
+inference   44m         Normal    Created             pod/inference-gpu-workers-worker-bqml2   Created container: ray-worker
+inference   39m         Warning   Unhealthy           pod/inference-head-t4zvd                 Startup probe failed: Get "http://10.0.2.90:8000/health": dial tcp 10.0.2.90:8000: connect: connection refused

@@ -1,0 +1,5 @@
+# DRA objects (API present; unused by this profile)
+# captured: 2026-09-27T07:14:31Z
+# $ k get deviceclasses,resourceslices,resourceclaims -A
+
+No resources found

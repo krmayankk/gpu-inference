@@ -1,0 +1,16 @@
+# RayCluster + Ray pods (role labels)
+# captured: 2026-09-27T07:14:34Z
+# $ bash -c 
+    kubectl --kubeconfig './.kubeconfig' -n 'inference' get raycluster -o wide
+    echo
+    kubectl --kubeconfig './.kubeconfig' -n 'inference' get pods -o wide -L ray.io/node-type,ray.io/group
+
+NAME        DESIRED WORKERS   AVAILABLE WORKERS   CPUS   MEMORY   GPUS   TPUS   STATUS   AGE   HEAD POD IP   HEAD SERVICE IP
+inference   3                 3                   0      0        4      0      ready    79m   10.0.2.90     10.0.2.90
+
+NAME                                 READY   STATUS    RESTARTS      AGE   IP           NODE                         NOMINATED NODE   READINESS GATES   NODE-TYPE   GROUP
+chat-c9dc6875c-l9fp5                 1/1     Running   4 (80m ago)   81m   10.0.2.177   ip-10-0-2-128.ec2.internal   <none>           <none>                        
+inference-gpu-workers-worker-bqml2   1/1     Running   0             45m   10.0.2.99    ip-10-0-2-72.ec2.internal    <none>           <none>            worker      gpu-workers
+inference-gpu-workers-worker-fmgnf   1/1     Running   0             45m   10.0.2.44    ip-10-0-2-10.ec2.internal    <none>           <none>            worker      gpu-workers
+inference-gpu-workers-worker-g6pg9   1/1     Running   0             45m   10.0.2.249   ip-10-0-2-119.ec2.internal   <none>           <none>            worker      gpu-workers
+inference-head-t4zvd                 2/2     Running   0             45m   10.0.2.90    ip-10-0-2-247.ec2.internal   <none>           <none>            head        headgroup

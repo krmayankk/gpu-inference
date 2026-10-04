@@ -1,0 +1,12 @@
+# what was deployed
+# captured: 2026-09-27T07:14:01Z
+# $ bash -c 
+  echo "git: $(git -C '.' rev-parse HEAD) ($(git -C '.' rev-parse --abbrev-ref HEAD))"
+  echo "pool=aws gpu=l4x4 namespace=inference"
+  kubectl --kubeconfig './.kubeconfig' version 2>/dev/null
+
+git: d84ea1d35590be10ab23a2047409fbc5f80ff19c (phase-2/qwen3.8-27b)
+pool=aws gpu=l4x4 namespace=inference
+Client Version: v1.34.10
+Kustomize Version: v5.7.1
+Server Version: v1.34.11-eks-cfb47f5

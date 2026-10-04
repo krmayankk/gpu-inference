@@ -1,10 +1,9 @@
-# North star — an AI-native GPU platform
+# North star — gpu-inference at scale
 
 **Where this repo is going, what "at scale" means, and the path from here.** PLAN.md
-states the thesis (an ephemeral, portable GPU platform that manages itself through AI
-agents); `docs/phases.md` is the build ladder. This page reconciles both with what the
-live runs taught us, and turns it into the next PRs. Part 1 is the picture; Part 2 the
-details.
+states the thesis (an ephemeral, portable GPU platform that manages itself); 
+`docs/phases.md` is the build ladder. This page reconciles both with what the live runs
+taught us, and turns it into the next PRs. Part 1 is the picture; Part 2 the details.
 
 ---
 
@@ -13,30 +12,38 @@ details.
 ## In one paragraph
 
 Model a small **frontier-lab inference service**: open-weight models served on GPUs
-from any cloud, behind one OpenAI-compatible front door, scaled and routed by load. On
-top of it, an **agent runtime** whose workloads are themselves agents — up to a
-*software factory* that turns specs into merged PRs. And around all of it, **agents
-that operate the platform**: Sentinel reviews every change, an operator agent fixes
-drift, cost and incidents by opening PRs. The loop closes when the agents that build
-and run the platform think with tokens the platform itself serves.
+from any cloud, behind one OpenAI-compatible front door, scaled and routed by load,
+torn down to zero when idle — and an **operator agent** that keeps it healthy and cheap
+by opening PRs, never by mutating it directly.
 
 ## The layers
 
 ```
- ┌─ AI-native operations (around everything) ───────────────────────────────┐
- │  Sentinel: reviews every PR (built)   operator agent: drift/cost/incidents │
- │  → PRs (Phase 4)   the agents' own tokens served by this platform (loop)  │
- └───────────────────────────────────────────────────────────────────────────┘
- L4  agent workloads      software factory: spec → code → PR → gate → deploy
- L3  agent runtime        sandboxes, tool gateway (MCP), durable runs, budgets
  L2  inference service    front door (auth, limits, metering) · KV-aware routing
                           · replicas + autoscaling · multi-model · canaries
  L1  serving              vLLM · parallelism (TP / PP / DP) · KV cache · quantization
  L0  substrate            pools (EKS today; GKE, H100 burst) · GPU operator · capacity
+ ── self-management       operator agent watches L0–L2, acts only via PRs (Phase 4)
 ```
 
 **Built so far: L0 + L1** — one model per cluster, proven on mock → 1×L4 → 4×L4 (PP=4)
-with the same endpoint and contract. Everything above L1 is the path below.
+with the same endpoint and contract. L2 and the operator agent are the path below.
+
+## Two things, kept separate
+
+This repo is *built by* an agentic development workflow; it is not that workflow.
+
+| | Agentic dev platform | gpu-inference (this repo) |
+|---|---|---|
+| What | **how** we build: GitOps + agents — Sentinel reviews every PR today; later work intake (e.g. Linear) and agents that author PRs | **what** we build: a GPU inference service |
+| Runs on | GitHub Actions + hosted LLM APIs (Anthropic today, OpenRouter next) — **not** our AWS GPUs | ephemeral EKS (GKE later) |
+| Lives in | `krmayankk/sentinel` (+ future repos) | here |
+| Relationship | builds gpu-inference and any other project | one project it builds |
+
+Here, Sentinel appears only as this repo's PR gate and its rules (`CLAUDE.md`,
+`.sentinel/skills/`). **Someday, explicitly not planned:** this service grows an agent
+runtime (agents, swarms, IDE inference) on top of L2, and perhaps serves the dev
+platform's own tokens. Out of scope until L2 exists.
 
 ## Where we are against the plan
 
@@ -71,12 +78,15 @@ Each is small, reviewed on its own, and ships a README in the style of
 |---|---|---|---|
 | 1 | **Sentinel rules from the l4x4 run** (CLAUDE.md, skills, lint) | lessons are fresh; cheap | $0 |
 | 2 | **Prefix caching + speculative decoding knobs** on l4x4 / l4 | biggest latency win for agent prompts (TTFT up to 7.5s) | $0 to write; live check rides the next run |
-| 3 | **`l40s` profile: 27B on one g6e (L40S 48GB)** | same model, no network hops: tests the bandwidth math (Part 2) | fits current quota |
-| 4 | **`l4x4tp`: TP=4 inside one g6.12xlarge** | the TP-vs-PP comparison Phase 2 promised | fits (48 of 64 vCPU) |
-| 5 | **Replicas + KV-aware routing** (2+ copies behind llm-d / GIE) | first real L2 piece | fits current quota |
-| 6 | **Ingress + API keys** | retire port-forward; first front-door piece | $0 GPU |
-| 7 | **GKE pool** (`infra/pools/gke`) | second provider; compare GPU ergonomics | new project + GPU quota |
-| 8 | **Sentinel on OpenRouter / self-hosted** (sentinel repo) | cheaper reviews; dogfood our own endpoint | OpenRouter pay-per-token |
+| 3 | **`l4x4tp`: TP=4 inside one g6.12xlarge** | the TP-vs-PP comparison Phase 2 promised; same GPUs as today | fits (48 of 64 vCPU) |
+| 4 | **PP, faster: concurrency benchmark + cluster placement group** on l4x4 | learn where PP time goes; measure hop cost | fits (32 of 64) |
+| 5 | **`l40s` (1×L40S) and `l40sx4` (PP=4 over 4×L40S)** | one fast GPU vs PP on fast GPUs — shows hop cost dominating | fits (4 / 16 vCPU) |
+| 6 | **Replicas + KV-aware routing** (2+ copies behind llm-d / GIE) | first real L2 piece | fits |
+| 7 | **Ingress + API keys** | retire port-forward; first front-door piece | $0 GPU |
+| 8 | **GKE pool** (`infra/pools/gke`) | second provider; compare GPU ergonomics | new billed project + GPU quota |
+
+Dev-platform work (Sentinel on OpenRouter, work intake) is tracked in the sentinel repo,
+not this queue.
 
 ---
 
@@ -95,12 +105,32 @@ weight once. So, roughly, **tok/s ≈ bandwidth ÷ bytes read per token**.
 - **TP=4 inside one node:** every GPU reads its quarter of *every* layer **at the same
   time** → bandwidths add (4×300GB/s). Needs a fast GPU-to-GPU link, hence one machine
   (g6.12xlarge, PCIe). Expect a large gain, minus all-reduce cost over PCIe — measuring
-  that cost is the point of PR 4.
+  that cost is the point of PR 3.
 - **One bigger GPU:** L40S (48GB, ~864GB/s) holds the whole 30.9GB model → ceiling
-  ~28 tok/s with zero network (PR 3).
+  ~28 tok/s with zero network (PR 5).
 - **Without new hardware:** prefix caching (skip recomputing a shared prompt prefix —
   agent prompts repeat heavily) and speculative decoding (a small draft model proposes
   tokens, the big one verifies several per step) (PR 2).
+
+## Making PP faster on 4 nodes (and learning PP properly)
+
+Where a token's time goes today (estimates from the run): 1 token ≈ 123ms at 8.1 tok/s;
+reading weights ≈ 4 × 26ms = 104ms; the remaining **~20ms is the pipeline's hand-offs**
+— roughly 5ms per hop, mostly software overhead (serialize, send, wake the next stage),
+not network bandwidth: a hop carries one token's activations, kilobytes, not gigabytes.
+
+| Lever | What it changes | Expected |
+|---|---|---|
+| **Concurrency** (fill the pipeline) | with N requests in flight, all 4 stages work at once on different requests | aggregate tok/s up to ~4× a single request; per-request speed roughly flat. The run already showed 7.4 tok/s each with 2–3 in flight, all 4 GPUs at 100% |
+| **Cluster placement group** | nodes on the same rack → lower hop latency | shaves part of the ~20ms; worth measuring |
+| **Faster GPUs per stage** (4×L40S) | each stage reads 7.7GB at ~864GB/s ≈ 9ms | ceiling ~28 tok/s, **but** the ~20ms of hops becomes half the token time — PP's fixed cost dominates as GPUs get faster |
+| **Speculative decoding** | one pass through the pipeline yields several accepted tokens | amortizes the hops; check vLLM v0.24 supports it with PP > 1 |
+| **Fewer bytes** (INT4) | ~half the weight bytes per token | ~2× ceiling, some quality cost — and 27B INT4 (~15GB) fits one L4, removing the reason for PP |
+| **TP inside, PP across** (hybrid) | the frontier multi-node pattern: TP over NVLink in each node, PP between nodes | needs 2+ multi-GPU nodes (≥96 vCPU) → Phase 5 |
+
+The lesson to be able to explain: **PP buys capacity (a model bigger than one GPU) and
+throughput under load; it costs per-token latency.** Use it when a model doesn't fit
+one node, and fill the pipeline.
 
 ## Quota and budget reality
 
@@ -116,7 +146,7 @@ remaining: **$80.29**. Every type below is offered in at least 4 us-east-1 zones
 | TP=4 in one node | g6.12xlarge (4×L4) or g6e.12xlarge (4×L40S), 48 vCPU each | **yes** — one at a time |
 | Prefill/decode disaggregation (meaningful) | fast KV transfer (NVLink / EFA) | no → Phase 5 |
 | 8×H100 NVLink (TP=8) | P quota + Capacity Block | no → Phase 5 |
-| Ingress, auth, SLOs, GitOps, agents | no GPU | **yes** |
+| Ingress, auth, SLOs, GitOps, operator agent | no GPU | **yes** |
 
 **GKE:** the `magic-487821` project has billing disabled; a GKE pool needs a dedicated
 project with billing, the Compute + GKE APIs, and a GPU quota request (new projects
@@ -151,21 +181,11 @@ reservation), and comparing how GKE handles GPU nodes versus EKS.
    remote-write metrics so history survives teardown (e.g. Amazon Managed Prometheus),
    and **cost per 1M tokens** as the headline number for every profile.
 
-## From inference service to agent platform (L3–L4)
-
-- **Agent runtime (L3):** isolated sandboxes for agent tool execution (gVisor / Kata /
-  Firecracker), a tool gateway (MCP), durable long-running runs, per-agent token and
-  dollar budgets, traces per agent.
-- **Agent workloads (L4):** the software factory — agents take a spec, write code, open
-  PRs, Sentinel gates them, GitOps deploys. This repo is already built that way by
-  hand; the factory automates the same loop.
-- **Closing the loop:** the agents that review and operate this platform run on tokens
-  this platform serves.
-
-## AI-native operations: Sentinel and the operator agent
+## Sentinel rules and the operator agent
 
 **Learnings from the l4x4 run → Sentinel rules** (PR 1). Mechanical rules become
 deterministic lint (Sentinel's own demotion principle); judgment stays in skills.
+These are rules *for this repo*; the reviewer itself belongs to the dev platform.
 
 | Learning (incident) | Rule | Where |
 |---|---|---|
@@ -178,14 +198,6 @@ deterministic lint (Sentinel's own demotion principle); judgment stays in skills
 | Live runs must leave proof | a `docs/runs/` PR carries `make evidence` output + teardown proof | `cost_teardown_proof` skill |
 | Contract passed against the wrong backend (Phase 1) | contract pins backend identity | contract test (backlog) |
 
-**Sentinel's model provider.** Today Sentinel calls the Anthropic API (and its CI check
-currently fails on API credit, not findings). Sentinel's own plan already has a
-pluggable provider layer (`LLMProvider`, its v0.6). OpenRouter speaks the OpenAI API, so
-one OpenAI-compatible adapter with a configurable base URL covers OpenRouter (cheap
-open-weight models in CI) *and* our own vLLM endpoint (the platform reviewing its own
-PRs during a live run). Sentinel's bake-off (`docs/bake-off.md` there) then measures
-open vs frontier models on the same skills.
-
 **Operator agent** (Phase 4): first job is orphan / cost-drift detection → cleanup PRs;
 then capacity (a node group stuck on capacity → PR adding zones or a fallback type);
 then SLO breaches → PR with the scaling change. Every action is a PR — GitOps stays the
@@ -195,11 +207,12 @@ only mutation path.
 
 - **30 seconds:** "I built an ephemeral GPU inference platform where the hardware is
   the only variable: the same endpoint and contract from a $0 mock to 4 GPUs on 4
-  machines serving a model too big for any one of them. Every change is gated by an AI
-  reviewer, every run leaves evidence, and teardown proves zero cost left behind."
+  machines serving a model too big for any one of them. It's built with an agentic
+  workflow — an AI reviewer gates every PR — every run leaves evidence, and teardown
+  proves zero cost left behind."
 - **The number that shows understanding:** 8.1 tok/s measured vs ~10 predicted from
   bandwidth (7.7GB per stage at 300GB/s, 4 stages in sequence) — and why TP or a bigger
-  GPU, not more nodes, is the fix.
+  GPU, not more nodes, is the fix — and where the other ~20ms goes (pipeline hops).
 - **The war stories:** capacity not quota (#1); operator defaults that assume tools
   your image lacks (#4, #7); metrics nobody scraped (#12). Each: symptom → cause → fix →
   a rule so it can't recur.

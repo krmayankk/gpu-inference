@@ -5,8 +5,17 @@ has 24GB — no single GPU can hold it. So the model is split into 4 pieces, 16 
 64 layers per GPU: **pipeline parallelism, PP=4** (ADR-0011). Everything below exists
 to make those 4 pieces behave like one model behind one endpoint.
 
-This page explains how the layers fit together, bottom to top. The manifests
-(`raycluster.yaml`, `service.yaml`) carry the per-line rationale.
+**In short:** Terraform gives 4 GPU machines; the NVIDIA operator makes their GPUs
+requestable; KubeRay turns 4 pods into one Ray cluster; vLLM on the head uses Ray to
+place a quarter of the model on each GPU; one Service exposes it as a single
+OpenAI-compatible endpoint.
+
+Part 1 is the overall flow, bottom to top. Part 2 peels the onion on Ray and vLLM
+processes. The manifests (`raycluster.yaml`, `service.yaml`) carry the per-line rationale.
+
+---
+
+# Part 1 — the overall flow
 
 ## 1. Machines — Terraform (`infra/pools/aws`)
 
@@ -54,47 +63,8 @@ by using vLLM's own image. Each pod boots in order:
 | 3. join | `ray start --head` (starts GCS) | **wait** until the head's GCS answers, then `ray start` |
 | 4. serve | `exec vllm serve Qwen/Qwen3.8-27B-FP8 --pipeline-parallel-size=4 …` | nothing more — Ray hands it work |
 
-### Who starts vLLM? (the head pod runs two different things)
-
-Ray does not decide to run vLLM. **vLLM is the boss; Ray is the mechanism it uses to run
-code on other machines.**
-
-1. **Ray comes up in all 4 pods — nothing else yet.** Head: `ray start --head` (GCS +
-   raylet). Workers: `ray start` (raylet) and join. Result: a 4-GPU Ray cluster, **no
-   vLLM anywhere**.
-2. **The head pod's own script then runs `vllm serve`.** Not started by Ray — it is the
-   next line of the same shell (`exec` replaces the shell, so vLLM becomes the
-   container's main process). This is the **main vLLM process**: API server + engine.
-3. **The main vLLM process uses Ray as a remote process launcher.** It tells Ray:
-   "reserve 4 GPUs, all-or-nothing (a *placement group*), and run my pipeline-stage code
-   on each." Ray's raylets then start one **vLLM stage process** per GPU — in the head
-   pod too — and each stage loads **its 16 layers** from the local `/cache`.
-4. **From then on the main vLLM process drives everything:** it takes requests and
-   pushes tokens through the 4 stages over vLLM's own channel. Ray just keeps the stage
-   processes alive; it is not in the per-token path.
-
-```
-head pod:    Ray (GCS + raylet)   +  vllm serve (main process) ──asks Ray──┐
-                                  +  stage 0, layers  1-16  ◀── Ray starts ─┤
-worker 1:    Ray (raylet)         +  stage 1, layers 17-32  ◀── Ray starts ─┤
-worker 2:    Ray (raylet)         +  stage 2, layers 33-48  ◀── Ray starts ─┤
-worker 3:    Ray (raylet)         +  stage 3, layers 49-64  ◀── Ray starts ─┘
-```
-
-So yes, Ray starts vLLM on the workers — but only the *stage* processes, and only
-because the main vLLM process on the head asked it to.
-
-- **Who starts what:** `up.sh` only applies the `RayCluster`; KubeRay makes the pods; each
-  pod's own command does the rest. Nobody hands vLLM an address — `ray.init()` with none
-  attaches to the Ray head already running in the same container.
-- **Why it isn't backwards:** Ray is the platform (a small "Kubernetes for Python
-  processes"), vLLM is the app that asks it for GPUs. Ray in charge of vLLM is a different
-  setup — Ray Serve / KubeRay `RayService`, for many autoscaled replicas.
-- **Why `exec`:** it replaces the shell with vLLM, making vLLM PID 1 — so it receives
-  Kubernetes' `SIGTERM` and shuts down cleanly, and the container dies when vLLM does.
-
-`ray.io/overwrite-container-cmd: "true"` tells KubeRay "use our command, not yours" —
-that is how "install Ray first" and "then run vLLM after `ray start`" fit in.
+vLLM on the head then asks Ray to put one stage (16 layers) on each of the 4 GPUs —
+details in Part 2.
 
 ## 5. Health
 
@@ -139,7 +109,59 @@ one L4).
    and the vLLM ServiceMonitor
 7. wait for the head pod Ready = all 4 stages loaded, `/health` passes
 
-**In short:** Terraform gives 4 GPU machines; the NVIDIA operator makes their GPUs
-requestable; KubeRay turns 4 pods into one Ray cluster; vLLM on the head uses Ray to
-place a quarter of the model on each GPU; one Service exposes it as a single
-OpenAI-compatible endpoint.
+---
+
+# Part 2 — peeling the onion: Ray and vLLM processes
+
+## Who starts what
+
+- `up.sh` only applies the `RayCluster` manifest. KubeRay makes the 4 pods. Each pod's
+  own command (in `raycluster.yaml`) does the rest.
+- `ray.io/overwrite-container-cmd: "true"` tells KubeRay "use our command, not yours" —
+  that is how "install Ray first" and "run vLLM after `ray start`" fit in.
+
+## Who starts vLLM? vLLM is the boss, Ray is the mechanism
+
+1. **Ray comes up in all 4 pods — nothing else yet.** Head: `ray start --head` (GCS +
+   raylet). Workers: `ray start` (raylet) and join. A 4-GPU Ray cluster, **no vLLM
+   anywhere**.
+2. **The head pod's own script then runs `vllm serve`** — not started by Ray, just the
+   next line of the same shell. This is the **main vLLM process**: API server + engine.
+   Nobody hands it an address: `ray.init()` with none attaches to the Ray head already
+   running in the same container.
+3. **The main vLLM process uses Ray as a remote process launcher:** "reserve 4 GPUs,
+   all-or-nothing (a *placement group*), and run my pipeline-stage code on each." Each
+   raylet starts one **vLLM stage process** on its GPU — in the head pod too — and it
+   loads **its 16 layers** from the local `/cache`.
+4. **From then on the main vLLM process drives everything:** it pushes tokens through
+   the 4 stages over vLLM's own channel. Ray just keeps the stage processes alive; it
+   is not in the per-token path.
+
+```
+head pod:    Ray (GCS + raylet)   +  vllm serve (main process) ──asks Ray──┐
+                                  +  stage 0, layers  1-16  ◀── Ray starts ─┤
+worker 1:    Ray (raylet)         +  stage 1, layers 17-32  ◀── Ray starts ─┤
+worker 2:    Ray (raylet)         +  stage 2, layers 33-48  ◀── Ray starts ─┤
+worker 3:    Ray (raylet)         +  stage 3, layers 49-64  ◀── Ray starts ─┘
+```
+
+**So vLLM does run on every worker — as a stage process that holds that GPU's layers
+and does their math.** The API server and the scheduler/batcher exist only on the head:
+workers compute, the head decides.
+
+## Why it isn't backwards
+
+Ray is the platform (a small "Kubernetes for Python processes"); vLLM is the app that
+asks it for GPUs — like an app calling the Kubernetes API for pods. Ray *in charge of*
+vLLM is a different setup: Ray Serve / KubeRay `RayService`, for many autoscaled
+replicas of a model rather than one model split across GPUs.
+
+## `exec`: what each container's main process becomes
+
+`exec` replaces the shell with the next program (same PID). That program is what
+Kubernetes signals (`SIGTERM` on shutdown) and whose exit ends the container.
+
+| | Main process after `exec` | vLLM runs as |
+|---|---|---|
+| Head | `vllm serve` (API server + engine) | the main process itself + stage 0, started by Ray |
+| Worker | `ray start --block` (KubeRay's generated command; keeps the raylet alive) | a child of the raylet (stage 1/2/3) |

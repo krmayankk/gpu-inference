@@ -79,7 +79,7 @@ Each is small, reviewed on its own, and ships a README in the style of
 |---|---|---|---|
 | 1 | **Sentinel rules from the l4x4 run** (CLAUDE.md, skills, lint) | lessons are fresh; cheap | $0 |
 | 2 | **Prefix caching + speculative decoding knobs** on l4x4 / l4 | biggest latency win for agent prompts (TTFT up to 7.5s) | $0 to write; live check rides the next run |
-| 3 | **`l4x4tp`: TP=4 inside one g6.12xlarge** | the TP-vs-PP comparison Phase 2 promised; same GPUs as today | fits (48 of 64 vCPU) |
+| 3 | **One g6.12xlarge (4×L4), three layouts: TP=4, PP=4, TP=2×PP=2** | same 4 GPUs as today, no network: separates the cost of *the network* from the cost of *the parallelism type* | fits (48 of 64 vCPU) |
 | 4 | **PP, faster: concurrency benchmark + cluster placement group** on l4x4 | learn where PP time goes; measure hop cost | fits (32 of 64) |
 | 5 | **`l40s` (1×L40S) and `l40sx4` (PP=4 over 4×L40S)** | one fast GPU vs PP on fast GPUs — shows hop cost dominating | fits (4 / 16 vCPU) |
 | 6 | **Replicas + KV-aware routing** (2+ copies behind llm-d / GIE) | first real L2 piece | fits |

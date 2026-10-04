@@ -11,6 +11,41 @@ served behind the same seam as the mock and the 1-GPU profile, driven from VS Co
 | Every problem hit, and its fix | [`incidents.md`](incidents.md) — 16 entries |
 | Raw proof | [`evidence/`](evidence/) — captured live with `make evidence` |
 | Screenshots | [`screenshots/`](screenshots/) — Grafana (DCGM, vLLM), Ray dashboard, VS Code |
+| How the setup works (not run-specific) | [`platform/serving/gpus/l4x4/README.md`](../../../platform/serving/gpus/l4x4/README.md) |
+
+## The story in 60 seconds
+
+1. **Problem:** a 30.9GB model, GPUs with 24GB. It cannot run on one GPU.
+2. **Design:** split it into 4 pipeline stages (16 layers each) on 4 L4s on 4 machines;
+   vLLM uses Ray to place the stages; one Service keeps the endpoint identical to the
+   1-GPU and mock setups.
+3. **What broke:** 16 real problems — GPU capacity in the zone, missing namespace,
+   KubeRay defaults that assume tools the vLLM image lacks, unscraped metrics,
+   double-uploaded weights. Each has a raw symptom, a root cause, and a fix that is now
+   on master.
+4. **What it did:** contract 11/11, 8.1 tok/s per request, all 4 GPUs at 100% under
+   concurrent load, used for real coding from VS Code.
+5. **What it cost, and proof it's gone:** ~$20; 67 resources destroyed, zero residual.
+
+## Mental map — what this folder proves, and where
+
+| Question | Answer in | Look at |
+|---|---|---|
+| Did it really run on 4 GPUs on 4 machines? | `evidence/` | `instances.txt`, `nodes.txt` (GPU labels per node), `nvidia-smi.txt` (every GPU), `pods-all.txt` |
+| How does a pod get a GPU? | `evidence/` | `gpu-request.txt`, `gpu-operator.txt`, `dra.txt` (DRA present, unused) |
+| Did Ray form one cluster, and where does vLLM run? | `evidence/` | `raycluster.txt`, `ray-status.txt` (4/4 GPU), `processes-per-pod.txt`; `screenshots/12–13` |
+| What's in the image, what's installed? | `evidence/` | `image-anatomy.txt`, `helm-releases.txt`, `namespaces.txt` |
+| What went wrong, live? | `incidents.md`, `evidence/events.txt` | Kubernetes events (they expire after ~1h — captured during the run) |
+| Does it behave like every other profile? | `evidence/contract.txt` | the same 11 assertions as mock and 1×L4 |
+| How fast? | `evidence/bench.txt`, `evidence/vllm-metrics.txt` | `screenshots/08–11` (vLLM dashboard), `prometheus-session.json` |
+| Were the GPUs actually busy? | `screenshots/01–07` | DCGM: temperature, clocks, utilization, tensor cores, all 4 at 100% |
+| Is Ray in the per-token path? | `screenshots/14` | py-spy flame graph of the vLLM engine — no |
+| Is it useful for real work? | `evidence/vscode-go/`, `evidence/codetest/` | code written via VS Code (Continue) on this model; `screenshots/05` |
+| What did it cost; is anything left? | this README | Cost, Teardown proof (below) |
+
+**How the evidence was captured:** `make evidence` (`scripts/evidence.sh`) — read-only
+`kubectl`/`aws`/`helm` commands, each output file headed by the exact command, account id
+and local paths redacted. Raw outputs, not summaries, so a reader can trust them.
 
 ## Results
 

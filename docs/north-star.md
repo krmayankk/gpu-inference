@@ -129,6 +129,12 @@ not network bandwidth: a hop carries one token's activations, kilobytes, not gig
 | **Fewer bytes** (INT4) | ~half the weight bytes per token | ~2× ceiling, some quality cost — and 27B INT4 (~15GB) fits one L4, removing the reason for PP |
 | **TP inside, PP across** (hybrid) | the frontier multi-node pattern: TP over NVLink in each node, PP between nodes | needs 2+ multi-GPU nodes (≥96 vCPU) → Phase 5 |
 
+**The hop floor:** even with infinitely fast GPUs, ~20ms of hand-offs caps PP=4 at
+~50 tok/s. Frontier-like PP across nodes therefore needs fast GPUs *and* cheap hops —
+low-latency interconnect (EFA / RDMA instead of TCP), fewer hops per token (speculative
+decoding) — not just more or bigger GPUs. Best within today's quota: PP=4 over 4×L40S
+(16 vCPU) + speculative decoding + a placement group.
+
 The lesson to be able to explain: **PP buys capacity (a model bigger than one GPU) and
 throughput under load; it costs per-token latency.** Use it when a model doesn't fit
 one node, and fill the pipeline.

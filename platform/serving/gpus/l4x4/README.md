@@ -54,10 +54,35 @@ by using vLLM's own image. Each pod boots in order:
 | 3. join | `ray start --head` (starts GCS) | **wait** until the head's GCS answers, then `ray start` |
 | 4. serve | `exec vllm serve Qwen/Qwen3.8-27B-FP8 --pipeline-parallel-size=4 …` | nothing more — Ray hands it work |
 
-When `vllm serve` starts on the head, it asks Ray for **4 GPUs, all-or-nothing** (a
-*placement group*). Ray starts one vLLM stage process on each GPU; each loads **its 16
-layers** from the local `/cache`. After start-up Ray only supervises — per-token traffic
-between stages runs over vLLM's own channel, not through Ray.
+### Who starts vLLM? (the head pod runs two different things)
+
+Ray does not decide to run vLLM. **vLLM is the boss; Ray is the mechanism it uses to run
+code on other machines.**
+
+1. **Ray comes up in all 4 pods — nothing else yet.** Head: `ray start --head` (GCS +
+   raylet). Workers: `ray start` (raylet) and join. Result: a 4-GPU Ray cluster, **no
+   vLLM anywhere**.
+2. **The head pod's own script then runs `vllm serve`.** Not started by Ray — it is the
+   next line of the same shell (`exec` replaces the shell, so vLLM becomes the
+   container's main process). This is the **main vLLM process**: API server + engine.
+3. **The main vLLM process uses Ray as a remote process launcher.** It tells Ray:
+   "reserve 4 GPUs, all-or-nothing (a *placement group*), and run my pipeline-stage code
+   on each." Ray's raylets then start one **vLLM stage process** per GPU — in the head
+   pod too — and each stage loads **its 16 layers** from the local `/cache`.
+4. **From then on the main vLLM process drives everything:** it takes requests and
+   pushes tokens through the 4 stages over vLLM's own channel. Ray just keeps the stage
+   processes alive; it is not in the per-token path.
+
+```
+head pod:    Ray (GCS + raylet)   +  vllm serve (main process) ──asks Ray──┐
+                                  +  stage 0, layers  1-16  ◀── Ray starts ─┤
+worker 1:    Ray (raylet)         +  stage 1, layers 17-32  ◀── Ray starts ─┤
+worker 2:    Ray (raylet)         +  stage 2, layers 33-48  ◀── Ray starts ─┤
+worker 3:    Ray (raylet)         +  stage 3, layers 49-64  ◀── Ray starts ─┘
+```
+
+So yes, Ray starts vLLM on the workers — but only the *stage* processes, and only
+because the main vLLM process on the head asked it to.
 
 `ray.io/overwrite-container-cmd: "true"` tells KubeRay "use our command, not yours" —
 that is how "install Ray first" and "then run vLLM after `ray start`" fit in.

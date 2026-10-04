@@ -31,7 +31,7 @@ S     := scripts
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down demo verify chat status orphans preflight lint bootstrap env \
+.PHONY: help up down demo verify chat status orphans preflight lint bootstrap env evidence \
         contract cache-weights grafana
 
 help: ## Show this help
@@ -65,6 +65,9 @@ status: ## Show what is currently running on POOL
 
 cache-weights: ## Push freshly-downloaded model weights to the S3 cache
 	@$(S)/cache-weights.sh
+
+evidence: ## Snapshot the live run into docs/runs/<date>-<gpu>/evidence (read-only)
+	@$(S)/evidence.sh
 
 grafana: ## Port-forward Grafana (requires OBS=1 install)
 	@$(S)/grafana.sh

@@ -58,7 +58,7 @@ platform's own tokens. Out of scope until L2 exists.
 | 5 | multi-cloud H100 burst | not started |
 | 6 | CRD-driven fleet + self-management | not started |
 
-## What "at scale" adds — seven gaps, mapped to the ladder
+## What "at scale" adds — eight gaps, mapped to the ladder
 
 | # | Gap | Today | At scale | Lands in |
 |---|---|---|---|---|
@@ -69,6 +69,7 @@ platform's own tokens. Out of scope until L2 exists.
 | 5 | **Getting GPUs** | one region, one type; capacity outages hit (incident #1) | all zones (PR #7), multi-provider (GKE), reservations / Capacity Blocks | Phase 5 |
 | 6 | **Front door** | `kubectl port-forward` | ingress + TLS, API keys, per-tenant rate limits and token budgets, metering | Phase 3 |
 | 7 | **Operations** | dashboards only | SLOs on TTFT / inter-token latency, alerts, long-term metrics, **cost per 1M tokens** | Phase 3–4 |
+| 8 | **All-or-nothing scheduling** | only Ray knows the 4 pods belong together; with 3 GPUs Kubernetes runs 3 pods that wait forever | Kueue admits a RayCluster only when *all* its GPUs are available; queues, priorities, preemption for shared GPU capacity; whole-gang node provisioning | Phase 2→4 |
 
 ## Next PRs, in order
 
@@ -85,6 +86,7 @@ Each is small, reviewed on its own, and ships a README in the style of
 | 6 | **Replicas + KV-aware routing** (2+ copies behind llm-d / GIE) | first real L2 piece | fits |
 | 7 | **Ingress + API keys** | retire port-forward; first front-door piece | $0 GPU |
 | 8 | **GKE pool** (`infra/pools/gke`) | second provider; compare GPU ergonomics | new billed project + GPU quota |
+| 9 | **Kueue: gang admission for RayClusters** | moves all-or-nothing from Ray into Kubernetes; prerequisite for sharing GPUs between workloads | $0 — provable on the local kind pool with fake resources, then live |
 
 Dev-platform work (Sentinel on OpenRouter, work intake) is tracked in the sentinel repo,
 not this queue.
@@ -161,7 +163,7 @@ usually start at 0 GPUs; free-trial accounts can't use GPUs at all). Worth it fo
 on `g2` machines, H100 via `a3` with DWS flex-start (on-demand burst without a
 reservation), and comparing how GKE handles GPU nodes versus EKS.
 
-## The seven gaps, one level down
+## The eight gaps, one level down
 
 1. **Replicas + autoscaling.** Scale on what limits LLM serving — waiting requests and
    KV-cache occupancy (vLLM exports both; we scrape them since #8) — not CPU. Two layers:
@@ -187,6 +189,14 @@ reservation), and comparing how GKE handles GPU nodes versus EKS.
 7. **Operations.** SLOs on TTFT and inter-token latency (p99), alerts on them,
    remote-write metrics so history survives teardown (e.g. Amazon Managed Prometheus),
    and **cost per 1M tokens** as the headline number for every profile.
+8. **All-or-nothing scheduling.** A 4-stage model is useless at 3 GPUs. Today that rule
+   lives inside Ray (the placement group); Kubernetes doesn't know the 4 pods are one
+   unit, so on short capacity it starts some and leaves them waiting forever, holding
+   GPUs. **Kueue** admits the whole RayCluster only when its full GPU quota is free,
+   queues the rest by priority, and can preempt lower-priority work; paired with
+   gang-aware provisioning it asks for all nodes at once instead of 3 of 4. This is
+   also what turns one-model-per-cluster into many workloads sharing a GPU pool.
+   (The tutorial's §7 shows the gang from inside Ray.)
 
 ## Sentinel rules and the operator agent
 
@@ -223,4 +233,4 @@ only mutation path.
 - **The war stories:** capacity not quota (#1); operator defaults that assume tools
   your image lacks (#4, #7); metrics nobody scraped (#12). Each: symptom → cause → fix →
   a rule so it can't recur.
-- **What at scale adds:** the seven gaps above, in order of what you'd build first.
+- **What at scale adds:** the eight gaps above, in order of what you'd build first.

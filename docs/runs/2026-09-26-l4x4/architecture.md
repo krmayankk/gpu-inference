@@ -14,7 +14,7 @@ is `docs/tutorials/phase-2-l4x4-first-live-run.md`.
 | Serving | vLLM (`vllm/vllm-openai`) | `v0.24.0` |
 | Model | `Qwen/Qwen3.8-27B-FP8` — 64 layers, hybrid Gated DeltaNet + attention | 30.9GB fp8 |
 | Observability | kube-prometheus-stack | `91.7.0` |
-| Deployed commit | `phase-2/qwen3.8-27b` | `d84ea1d` (evidence capture time) |
+| Deployed commit | tag `runs/2026-09-26-l4x4` | `d84ea1d` (evidence capture time; kept reachable by the tag — its changes are on master via PR #8) |
 
 ## Nodes and what runs on them
 

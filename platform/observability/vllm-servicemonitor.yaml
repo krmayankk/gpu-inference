@@ -1,0 +1,20 @@
+# Scrape vLLM's Prometheus endpoint through the seam's stable Service: every
+# GPU profile exposes `inference` (label app=inference, port `http`), whether
+# it fronts one pod or a Ray head. Applied by scripts/up.sh only when OBS=1
+# and a real model is serving — the ServiceMonitor CRD exists only with the
+# observability stack, and the mock has no /metrics.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm
+  namespace: inference
+  labels:
+    app.kubernetes.io/part-of: gpu-inference
+spec:
+  selector:
+    matchLabels:
+      app: inference
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

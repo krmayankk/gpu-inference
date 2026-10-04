@@ -12,4 +12,5 @@ pass="$(k -n observability get secret obs-grafana -o jsonpath='{.data.admin-pass
 banner "grafana"
 dim "open http://localhost:${PORT}  (admin / ${pass})"
 dim "Ctrl-C stops the forward; platform stays up"
-exec k -n observability port-forward svc/obs-grafana "${PORT}:80"
+# exec needs a program, not the k() function — call kubectl directly.
+exec kubectl --kubeconfig "${KUBECONFIG_PATH}" -n observability port-forward svc/obs-grafana "${PORT}:80"
